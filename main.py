@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import os
 import signal
 
-app = FastAPI(title="Bitcoin Price Tracker", version="1.0.0")
+app = FastAPI(title="Crypto Analyser", version="1.0.0")
 bitcoin_service = BitcoinService()
 
 class PriceResponse(BaseModel):
@@ -57,7 +57,7 @@ async def collect_and_store_price():
 
 @app.get("/")
 async def root():
-    return {"message": "Bitcoin Price Tracker API", "status": "running"}
+    return {"message": "Crypto Analyser API", "status": "running"}
 
 @app.get("/price/current", response_model=PriceResponse)
 async def get_current_price():

@@ -1,10 +1,10 @@
-# Bitcoin Price Tracker
+# Crypto Analyser
 
-A FastAPI application that fetches real-time Bitcoin-USD exchange rates, processes them with pandas, and stores them in a SQLite database.
+A FastAPI application that fetches real-time cryptocurrency prices, processes them with pandas, and stores them in a SQLite database.
 
 ## Features
 
-- Real-time Bitcoin price fetching from CoinGecko API
+- Real-time cryptocurrency price fetching from CoinGecko API
 - Pandas data series for time series analysis
 - SQLite database storage
 - REST API endpoints for data access
@@ -53,7 +53,7 @@ python scheduler.py
 ## GUI Features
 
 The Streamlit dashboard includes:
-- **Real-time Bitcoin price display** with current price, market cap, and 24h volume
+- **Real-time cryptocurrency price display** with current price, market cap, and 24h volume
 - **Interactive price chart** similar to CoinMarketCap with hover details
 - **24h trading volume chart** (when data available)
 - **Auto-refresh option** (60-second intervals)
@@ -65,7 +65,7 @@ The Streamlit dashboard includes:
 ## API Endpoints
 
 - `GET /` - API status
-- `GET /price/current` - Get current Bitcoin price
+- `GET /price/current` - Get current cryptocurrency price
 - `POST /price/collect` - Manually trigger price collection
 - `GET /price/history?limit=100` - Get price history from database
 - `GET /stats` - Get statistical analysis of collected data
@@ -77,7 +77,7 @@ The Streamlit dashboard includes:
 ```python
 import requests
 
-# Get current price
+# Get current crypto price
 response = requests.get("http://localhost:8000/price/current")
 print(response.json())
 
@@ -92,7 +92,7 @@ print(response.json())
 
 ## Data Storage
 
-- SQLite database: `bitcoin_data.db`
+- SQLite database: `crypto_analyser.db`
 - Pandas series: In-memory for fast analysis
 - Automatic data collection every 60 seconds (configurable)
 

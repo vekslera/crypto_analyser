@@ -18,8 +18,8 @@ from timezone_utils import (
 )
 
 st.set_page_config(
-    page_title="Bitcoin Price Tracker",
-    page_icon="₿",
+    page_title="Crypto Analyser",
+    page_icon="📊",
     layout="wide"
 )
 
@@ -215,7 +215,7 @@ def create_volume_chart(df, timezone_name=None):
     return fig
 
 # Main dashboard
-st.markdown('<div class="main-header">₿ Bitcoin Price Tracker</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">📊 Crypto Analyser</div>', unsafe_allow_html=True)
 
 # Sidebar controls
 st.sidebar.header("Controls")
@@ -404,7 +404,7 @@ if not df.empty:
 
 else:
     st.warning("No historical data available. Start the data collection service first!")
-    st.info("Run `python run.py` to start collecting Bitcoin price data.")
+    st.info("Run `python run.py` to start collecting crypto price data.")
 
 # Auto refresh with proper timing
 if auto_refresh:

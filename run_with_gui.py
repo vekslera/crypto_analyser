@@ -61,7 +61,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     try:
-        logger.info("Starting Bitcoin Price Tracker with GUI...")
+        logger.info("Starting Crypto Analyser with GUI...")
         logger.info("Press Ctrl+C to stop all services")
         
         # Create database tables

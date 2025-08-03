@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 #import os
 
-DATABASE_URL = "sqlite:///./bitcoin_data.db"
+DATABASE_URL = "sqlite:///./crypto_analyser.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

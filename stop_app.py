@@ -3,8 +3,8 @@ import sys
 import time
 
 def stop_bitcoin_tracker():
-    """Stop all Bitcoin tracker processes"""
-    print("Stopping Bitcoin Price Tracker...")
+    """Stop all Crypto Analyser processes"""
+    print("Stopping Crypto Analyser...")
     
     try:
         # Kill Python processes (be careful with this on systems with other Python apps)
