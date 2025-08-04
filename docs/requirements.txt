@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pandas
+sqlalchemy
+requests
+python-dotenv
+schedule
+streamlit
+plotly
+matplotlib
+seaborn
+pytz

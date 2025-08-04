@@ -1,10 +1,16 @@
 import subprocess
 import sys
 import time
+import os
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 def stop_bitcoin_tracker():
     """Stop all Crypto Analyser processes"""
-    print("Stopping Crypto Analyser...")
+    from core.config import MESSAGES
+    print(MESSAGES['stopping_app'])
     
     try:
         # Kill Python processes (be careful with this on systems with other Python apps)

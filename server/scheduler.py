@@ -1,15 +1,16 @@
 import asyncio
 import schedule
 import time
-from bitcoin_service import BitcoinService
-from database import SessionLocal, BitcoinPrice
+from .bitcoin_service import BitcoinService
+from .database import SessionLocal, BitcoinPrice
 import logging
+from core.config import DEFAULT_COLLECTION_INTERVAL, SCHEDULER_SLEEP_INTERVAL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PriceScheduler:
-    def __init__(self, interval_seconds: int = 60):  # Increased to 60 seconds for rate limiting
+    def __init__(self, interval_seconds: int = DEFAULT_COLLECTION_INTERVAL):
         self.bitcoin_service = BitcoinService()
         self.interval_seconds = interval_seconds
         self.running = False
@@ -56,7 +57,7 @@ class PriceScheduler:
         
         while self.running:
             schedule.run_pending()
-            time.sleep(1)
+            time.sleep(SCHEDULER_SLEEP_INTERVAL)
     
     def stop_scheduler(self):
         self.running = False
@@ -64,7 +65,7 @@ class PriceScheduler:
         logger.info("Price scheduler stopped")
 
 if __name__ == "__main__":
-    scheduler = PriceScheduler(interval_seconds=60)  # Collect every 60 seconds
+    scheduler = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
     try:
         scheduler.start_scheduler()
     except KeyboardInterrupt:

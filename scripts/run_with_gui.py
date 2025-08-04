@@ -4,10 +4,16 @@ import time
 import webbrowser
 import signal
 import sys
-#import os
-from scheduler import PriceScheduler
-from database import create_tables
+import os
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+from server.scheduler import PriceScheduler
+from server.database import create_tables
 import logging
+from core.config import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,7 +39,7 @@ def cleanup_and_exit():
         if process and process.poll() is None:
             try:
                 process.terminate()
-                process.wait(timeout=5)
+                process.wait(timeout=PROCESS_TERMINATION_TIMEOUT)
             except subprocess.TimeoutExpired:
                 process.kill()
     
@@ -42,17 +48,17 @@ def cleanup_and_exit():
 
 def run_scheduler():
     global scheduler_instance
-    scheduler_instance = PriceScheduler(interval_seconds=60)  # Increased for rate limiting
+    scheduler_instance = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
     scheduler_instance.start_scheduler()
 
 def run_fastapi():
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run("server.main:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
 
 def run_streamlit():
     global streamlit_process
-    time.sleep(5)  # Wait for FastAPI to start
-    streamlit_process = subprocess.Popen(["streamlit", "run", "gui_dashboard.py", "--server.port", "8501"])
+    time.sleep(STREAMLIT_STARTUP_DELAY)
+    streamlit_process = subprocess.Popen(["streamlit", "run", "client/gui_dashboard.py", "--server.port", str(STREAMLIT_PORT)])
     streamlit_process.wait()
 
 def main():
@@ -61,8 +67,8 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     try:
-        logger.info("Starting Crypto Analyser with GUI...")
-        logger.info("Press Ctrl+C to stop all services")
+        logger.info(MESSAGES['startup_gui'])
+        logger.info(MESSAGES['startup_services'])
         
         # Create database tables
         create_tables()
@@ -76,19 +82,19 @@ def main():
         # Start FastAPI in a separate thread
         fastapi_thread = threading.Thread(target=run_fastapi, daemon=True)
         fastapi_thread.start()
-        logger.info("FastAPI server starting on http://localhost:8000")
+        logger.info(MESSAGES['fastapi_starting'])
         
         # Wait a moment for FastAPI to start
-        time.sleep(3)
+        time.sleep(FASTAPI_STARTUP_DELAY)
         
         # Open browser tabs
         try:
-            webbrowser.open("http://localhost:8501")  # Streamlit GUI
-            webbrowser.open("http://localhost:8000/docs")  # FastAPI docs
+            webbrowser.open(STREAMLIT_URL)
+            webbrowser.open(FASTAPI_DOCS_URL)
         except:
             pass
         
-        logger.info("Starting Streamlit GUI on http://localhost:8501")
+        logger.info(MESSAGES['streamlit_starting'])
         
         # Start Streamlit (this will block)
         run_streamlit()

@@ -4,11 +4,18 @@ import plotly.graph_objects as go
 import pandas as pd
 import requests
 import time
+import sys
+import os
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
 #from datetime import datetime, timedelta
-from database import SessionLocal, BitcoinPrice
+from server.database import SessionLocal, BitcoinPrice
 import asyncio
-from bitcoin_service import BitcoinService
-from timezone_utils import (
+from server.bitcoin_service import BitcoinService
+from core.timezone_utils import (
     get_available_timezones, 
     convert_utc_to_local, 
     #format_datetime_local,
@@ -16,10 +23,11 @@ from timezone_utils import (
     set_default_timezone,
     get_default_timezone
 )
+from core.config import *
 
 st.set_page_config(
-    page_title="Crypto Analyser",
-    page_icon="📊",
+    page_title=APP_TITLE,
+    page_icon=APP_ICON,
     layout="wide"
 )
 
@@ -60,7 +68,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def get_price_data_from_db(limit=1000):
+def get_price_data_from_db(limit=DEFAULT_DB_QUERY_LIMIT):
     db = SessionLocal()
     try:
         # Get the most recent entries, then reverse for chronological order
@@ -92,7 +100,7 @@ def get_current_price_from_api():
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, bitcoin_service.fetch_bitcoin_price())
-                    price_data = future.result(timeout=10)
+                    price_data = future.result(timeout=API_REQUEST_TIMEOUT)
             else:
                 price_data = loop.run_until_complete(bitcoin_service.fetch_bitcoin_price())
         except RuntimeError:
@@ -215,18 +223,18 @@ def create_volume_chart(df, timezone_name=None):
     return fig
 
 # Main dashboard
-st.markdown('<div class="main-header">📊 Crypto Analyser</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="main-header">{CHART_LABELS["main_title"]}</div>', unsafe_allow_html=True)
 
 # Sidebar controls
-st.sidebar.header("Controls")
-auto_refresh = st.sidebar.checkbox("Auto Refresh (60s)", value=st.session_state.auto_refresh)
+st.sidebar.header(GUI_HEADERS['controls'])
+auto_refresh = st.sidebar.checkbox(GUI_REFRESH_LABEL, value=st.session_state.auto_refresh)
 st.session_state.auto_refresh = auto_refresh
 
-refresh_button = st.sidebar.button("🔄 Refresh Now")
-clear_data_button = st.sidebar.button("🗑️ Clear All Data", type="secondary")
+refresh_button = st.sidebar.button(BUTTON_LABELS['refresh_now'])
+clear_data_button = st.sidebar.button(BUTTON_LABELS['clear_data'], type="secondary")
 
 st.sidebar.markdown("---")
-stop_button = st.sidebar.button("🛑 Stop Application", type="primary", help="Gracefully shutdown the entire Bitcoin tracker application")
+stop_button = st.sidebar.button(BUTTON_LABELS['stop_app'], type="primary", help=BUTTON_HELP['stop_app'])
 
 # Timezone selector
 st.sidebar.header("🌍 Timezone Settings")
@@ -263,28 +271,28 @@ if refresh_button:
 # Handle clear data
 if clear_data_button:
     try:
-        response = requests.delete("http://localhost:8000/data/clear")
-        if response.status_code == 200:
-            st.sidebar.success("Data cleared successfully!")
+        response = requests.delete(ENDPOINT_DATA_CLEAR)
+        if response.status_code == HTTP_OK:
+            st.sidebar.success(UI_MESSAGES['data_cleared_success'])
         else:
-            st.sidebar.error("Failed to clear data")
+            st.sidebar.error(UI_MESSAGES['failed_clear_data'])
     except:
-        st.sidebar.error("Could not connect to API")
+        st.sidebar.error(UI_MESSAGES['could_not_connect'])
 
 # Handle stop application
 if stop_button:
     st.session_state.stop_confirmation = True
 
 if st.session_state.stop_confirmation:
-    st.sidebar.warning("⚠️ Are you sure you want to stop the application?")
+    st.sidebar.warning(UI_MESSAGES['confirm_stop_warning'])
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
-        if st.button("✅ Yes, Stop", key="confirm_stop"):
+        if st.button(BUTTON_LABELS['confirm_stop'], key="confirm_stop"):
             try:
                 st.sidebar.info("Shutting down application...")
-                response = requests.post("http://localhost:8000/system/shutdown", timeout=5)
-                if response.status_code == 200:
+                response = requests.post(ENDPOINT_SYSTEM_SHUTDOWN, timeout=SHUTDOWN_REQUEST_TIMEOUT)
+                if response.status_code == HTTP_OK:
                     st.sidebar.success("Application stopped successfully!")
                     st.sidebar.info("You can close this browser tab now.")
                     st.stop()
@@ -298,7 +306,7 @@ if st.session_state.stop_confirmation:
                 st.sidebar.error(f"Error stopping application: {e}")
     
     with col2:
-        if st.button("❌ Cancel", key="cancel_stop"):
+        if st.button(BUTTON_LABELS['cancel_stop'], key="cancel_stop"):
             st.session_state.stop_confirmation = False
             st.rerun()
 
@@ -411,16 +419,16 @@ if auto_refresh:
     current_time = time.time()
     time_since_last = current_time - st.session_state.last_refresh
     
-    if time_since_last >= 60:  # 60 seconds interval
+    if time_since_last >= AUTO_REFRESH_INTERVAL:
         st.session_state.last_refresh = current_time
         st.rerun()
     else:
         # Show countdown to next refresh
-        time_remaining = 60 - time_since_last
+        time_remaining = AUTO_REFRESH_INTERVAL - time_since_last
         st.sidebar.info(f"Auto-refresh in: {int(time_remaining)} seconds")
         
         # Sleep for the remaining time, then refresh
-        time.sleep(min(time_remaining, 5))  # Cap at 5 seconds to avoid long waits
+        time.sleep(min(time_remaining, AUTO_REFRESH_MAX_SLEEP))
         st.rerun()
 
 # Footer

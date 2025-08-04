@@ -6,6 +6,7 @@ Ensures all parts of the application respect rate limits
 from datetime import datetime, timedelta
 import time
 import logging
+from core.config import RATE_LIMIT_MIN_INTERVAL, RATE_LIMIT_CACHE_DURATION, LOG_MESSAGES
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class GlobalRateLimiter:
     We'll be conservative with 4 calls per minute (15 second intervals)
     """
     
-    def __init__(self, min_interval_seconds=15):
+    def __init__(self, min_interval_seconds=RATE_LIMIT_MIN_INTERVAL):
         self.min_interval = min_interval_seconds
         self.last_successful_call = None
         self.cached_data = None
@@ -39,7 +40,7 @@ class GlobalRateLimiter:
         time_since_last = (datetime.utcnow() - self.last_successful_call).total_seconds()
         if time_since_last < self.min_interval:
             wait_time = self.min_interval - time_since_last
-            logger.info(f"Global rate limiter: waiting {wait_time:.1f} seconds")
+            logger.info(LOG_MESSAGES['rate_limit_wait'].format(wait_time=wait_time))
             time.sleep(wait_time)
             return wait_time
         return 0
@@ -51,16 +52,16 @@ class GlobalRateLimiter:
         
         if data:
             self.cached_data = data
-            self.cache_expiry = datetime.utcnow() + timedelta(seconds=30)  # 30 second cache
+            self.cache_expiry = datetime.utcnow() + timedelta(seconds=RATE_LIMIT_CACHE_DURATION)
         
-        logger.info(f"API call #{self.call_count} completed successfully")
+        logger.info(LOG_MESSAGES['api_call_completed'].format(call_count=self.call_count))
     
     def record_failed_call(self, is_rate_limit_error=False):
         """Record a failed API call"""
         if is_rate_limit_error:
             # For 429 errors, still update the timer to enforce waiting
             self.last_successful_call = datetime.utcnow()
-            logger.warning("429 rate limit error - enforcing delay")
+            logger.warning(LOG_MESSAGES['rate_limit_error'])
         else:
             # For other errors, don't update timer (allows faster retry)
             logger.info("API call failed (non-rate-limit) - no delay enforced")
@@ -69,7 +70,7 @@ class GlobalRateLimiter:
         """Get cached data if still valid"""
         if self.cached_data and self.cache_expiry:
             if datetime.utcnow() < self.cache_expiry:
-                logger.info("Returning cached data")
+                logger.info(LOG_MESSAGES['using_cached_data'])
                 return self.cached_data
         return None
     

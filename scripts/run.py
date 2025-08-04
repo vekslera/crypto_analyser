@@ -1,15 +1,23 @@
 import uvicorn
 import threading
 import time
-from scheduler import PriceScheduler
-from database import create_tables
+import sys
+import os
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+from server.scheduler import PriceScheduler
+from server.database import create_tables
 import logging
+from core.config import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_scheduler():
-    scheduler = PriceScheduler(interval_seconds=60)  # Collect every 60 seconds
+    scheduler = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
     scheduler.start_scheduler()
 
 def main():
@@ -23,11 +31,11 @@ def main():
     logger.info("Background scheduler started")
     
     # Give scheduler a moment to start
-    time.sleep(2)
+    time.sleep(INITIAL_SETUP_DELAY)
     
     # Start the FastAPI server
-    logger.info("Starting FastAPI server on http://localhost:8000")
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    logger.info(MESSAGES['fastapi_starting'])
+    uvicorn.run("server.main:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
 
 if __name__ == "__main__":
     main()

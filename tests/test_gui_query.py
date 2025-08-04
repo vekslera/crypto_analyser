@@ -1,4 +1,4 @@
-from database import SessionLocal, BitcoinPrice
+from server.database import SessionLocal, BitcoinPrice
 import pandas as pd
 from datetime import datetime
 

@@ -3,15 +3,16 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import logging
-from shared_data import shared_data
-from rate_limiter import global_rate_limiter
+from .shared_data import shared_data
+from .rate_limiter import global_rate_limiter
+from core.config import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class BitcoinService:
     def __init__(self):
-        self.base_url = "https://api.coingecko.com/api/v3"
+        self.base_url = COINGECKO_BASE_URL
         # Use global rate limiter instead of instance-specific rate limiting
         # Use shared data store instead of instance-specific series
     
@@ -26,15 +27,9 @@ class BitcoinService:
         
         try:
             url = f"{self.base_url}/simple/price"
-            params = {
-                'ids': 'bitcoin',
-                'vs_currencies': 'usd',
-                'include_market_cap': 'true',
-                'include_24hr_vol': 'true',
-                'include_last_updated_at': 'true'
-            }
+            params = COINGECKO_PARAMS
             
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, params=params, timeout=API_REQUEST_TIMEOUT)
             response.raise_for_status()
             
             data = response.json()
@@ -57,7 +52,7 @@ class BitcoinService:
             logger.error(f"Error fetching Bitcoin price: {e}")
             
             # Handle rate limit errors specially
-            is_rate_limit = hasattr(e, 'response') and e.response and e.response.status_code == 429
+            is_rate_limit = hasattr(e, 'response') and e.response and e.response.status_code == HTTP_RATE_LIMIT
             global_rate_limiter.record_failed_call(is_rate_limit_error=is_rate_limit)
             
             # Return cached data if available, even if expired
@@ -77,7 +72,7 @@ class BitcoinService:
         shared_data.add_price(price, timestamp)
         logger.info(f"Added price ${price:,.2f} to shared data series at {timestamp}")
     
-    def get_recent_data(self, limit: int = 100) -> pd.Series:
+    def get_recent_data(self, limit: int = DEFAULT_API_LIMIT) -> pd.Series:
         return shared_data.get_recent_data(limit)
     
     def get_statistics(self) -> Dict[str, float]:

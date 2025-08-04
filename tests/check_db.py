@@ -1,6 +1,6 @@
 import asyncio
-from bitcoin_service import BitcoinService
-from database import SessionLocal, BitcoinPrice
+from server.bitcoin_service import BitcoinService
+from server.database import SessionLocal, BitcoinPrice
 from datetime import datetime, timedelta
 import logging
 

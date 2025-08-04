@@ -2,9 +2,8 @@ from sqlalchemy import create_engine, Column, Integer, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
+from core.config import DATABASE_URL
 #import os
-
-DATABASE_URL = "sqlite:///./crypto_analyser.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
