@@ -34,28 +34,16 @@ app.include_router(debug_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize application dependencies on startup"""
+    """FastAPI startup event - container is already initialized by startup script"""
     try:
-        # Initialize dependency container
-        success = await container.initialize(
-            database_url=DATABASE_URL,
-            crypto_provider="coingecko",
-            coingecko_base_url="https://api.coingecko.com/api/v3",
-            api_timeout=10
-        )
-        
-        if not success:
-            logger.error("Failed to initialize dependency container")
+        if not container.is_initialized():
+            logger.warning("Container not initialized - this should have been done by startup script")
             return
         
-        logger.info("Dependency container initialized successfully")
-        
-        # Collect initial price data
-        await collect_and_store_price()
-        logger.info("Initial price data collected")
+        logger.info("FastAPI startup complete - container already initialized")
         
     except Exception as e:
-        logger.error(f"Startup failed: {e}")
+        logger.error(f"FastAPI startup failed: {e}")
         raise
 
 @app.get("/health")

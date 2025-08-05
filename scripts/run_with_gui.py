@@ -12,11 +12,13 @@ sys.path.insert(0, project_root)
 
 from server.scheduler import PriceScheduler
 from server.database import create_tables
+from server.dependency_container import container
 import logging
+import asyncio
 from core.config import *
+from core.logging_config import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger("scripts.run_with_gui")
 
 # Global variables for process management
 scheduler_instance = None
@@ -46,10 +48,46 @@ def cleanup_and_exit():
     logger.info("Shutdown complete")
     sys.exit(0)
 
+async def initialize_container():
+    """Initialize the dependency container"""
+    try:
+        logger.info("Initializing dependency container...")
+        success = await container.initialize(
+            database_url=DATABASE_URL,
+            crypto_provider="coingecko",
+            coingecko_base_url="https://api.coingecko.com/api/v3",
+            api_timeout=10
+        )
+        if success:
+            logger.info("Dependency container initialized successfully")
+            return True
+        else:
+            logger.error("Failed to initialize dependency container")
+            return False
+    except Exception as e:
+        logger.error(f"Error initializing dependency container: {e}")
+        return False
+
 def run_scheduler():
+    """Run the price scheduler (must be called after container initialization)"""
     global scheduler_instance
-    scheduler_instance = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
-    scheduler_instance.start_scheduler()
+    try:
+        # Wait for container to be initialized
+        max_wait = 30  # seconds
+        wait_time = 0
+        while not container.is_initialized() and wait_time < max_wait:
+            time.sleep(1)
+            wait_time += 1
+        
+        if not container.is_initialized():
+            logger.error("Container not initialized after 30 seconds, cannot start scheduler")
+            return
+        
+        scheduler_instance = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
+        logger.info("Starting price scheduler...")
+        scheduler_instance.start_scheduler()
+    except Exception as e:
+        logger.error(f"Error starting scheduler: {e}")
 
 def run_fastapi():
     import uvicorn
@@ -70,14 +108,15 @@ def main():
         logger.info(MESSAGES['startup_gui'])
         logger.info(MESSAGES['startup_services'])
         
+        # Initialize dependency container first
+        container_initialized = asyncio.run(initialize_container())
+        if not container_initialized:
+            logger.error("Failed to initialize dependency container, exiting")
+            return
+        
         # Create database tables
         create_tables()
         logger.info("Database tables created")
-        
-        # Start the background scheduler
-        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-        scheduler_thread.start()
-        logger.info("Background scheduler started")
         
         # Start FastAPI in a separate thread
         fastapi_thread = threading.Thread(target=run_fastapi, daemon=True)
@@ -87,12 +126,13 @@ def main():
         # Wait a moment for FastAPI to start
         time.sleep(FASTAPI_STARTUP_DELAY)
         
-        # Open browser tabs
-        try:
-            webbrowser.open(STREAMLIT_URL)
-            webbrowser.open(FASTAPI_DOCS_URL)
-        except:
-            pass
+        # Start the background scheduler (after container is initialized)
+        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+        scheduler_thread.start()
+        logger.info("Background scheduler started")
+        
+        # Open only the GUI tab (Streamlit will handle browser opening)
+        # No manual browser opening needed - Streamlit opens its own tab
         
         logger.info(MESSAGES['streamlit_starting'])
         

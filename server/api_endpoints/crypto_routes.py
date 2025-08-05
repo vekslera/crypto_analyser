@@ -44,12 +44,19 @@ async def collect_and_store_price():
 
 @router.get("/price/current", response_model=PriceResponse)
 async def get_current_price():
-    """Get current cryptocurrency price"""
+    """Get current cryptocurrency price (from recent data, don't fetch new)"""
     crypto_service = get_crypto_service()
-    price_data = await crypto_service.fetch_and_store_current_price("bitcoin")
     
-    if not price_data:
-        raise HTTPException(status_code=HTTP_SERVICE_UNAVAILABLE, detail=MESSAGES['unable_to_fetch'])
+    # Get the most recent stored price instead of fetching new data
+    recent_prices = await crypto_service.get_recent_prices(limit=1)
+    
+    if not recent_prices:
+        # If no data exists, then fetch once
+        price_data = await crypto_service.fetch_and_store_current_price("bitcoin")
+        if not price_data:
+            raise HTTPException(status_code=HTTP_SERVICE_UNAVAILABLE, detail=MESSAGES['unable_to_fetch'])
+    else:
+        price_data = recent_prices[0]
     
     return PriceResponse(
         price=price_data.price,

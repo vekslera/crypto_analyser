@@ -47,9 +47,9 @@ class PriceScheduler:
             
             price_data = await crypto_service.fetch_and_store_current_price("bitcoin")
             if price_data:
-                logger.info(f"Successfully collected and stored Bitcoin price: ${price_data.price:,.2f}")
+                logger.debug(f"Scheduler triggered price collection: ${price_data.price:,.2f}")
             else:
-                logger.warning("Failed to fetch and store Bitcoin price data")
+                logger.warning("Scheduler: Failed to fetch and store Bitcoin price data")
                 
         except Exception as e:
             logger.error(f"Error in price collection job: {e}")

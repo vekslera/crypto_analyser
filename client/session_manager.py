@@ -105,11 +105,10 @@ def handle_auto_refresh(auto_refresh_enabled):
             time_remaining = AUTO_REFRESH_INTERVAL - time_since_last
             st.sidebar.info(f"Auto-refresh in: {int(time_remaining)} seconds")
             
-            # Use Streamlit's automatic refresh mechanism instead of sleep
-            # This prevents blocking the UI
-            if time_remaining <= 1:
-                # Close to refresh time, trigger it soon
-                st.rerun()
+            # Use Streamlit's automatic rerun mechanism with timer
+            # Schedule a rerun when the time is up
+            time.sleep(1)  # Small delay to update the countdown
+            st.rerun()
 
 
 def get_data_limit_from_time_range(time_range):
