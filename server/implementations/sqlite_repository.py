@@ -124,6 +124,23 @@ class SQLiteRepository(DatabaseRepository):
             logger.error(f"Failed to get price history: {e}")
             return []
     
+    async def get_price_history_by_time_range(self, start_time: datetime, end_time: datetime) -> List[PriceData]:
+        """Get historical price data within a specific time range from SQLite"""
+        try:
+            with self._get_session() as session:
+                prices = session.query(BitcoinPriceModel)\
+                    .filter(BitcoinPriceModel.timestamp >= start_time)\
+                    .filter(BitcoinPriceModel.timestamp <= end_time)\
+                    .order_by(BitcoinPriceModel.timestamp.asc())\
+                    .all()
+                
+                result = [price.to_price_data() for price in prices]
+                logger.debug(f"Retrieved {len(result)} historical prices from {start_time} to {end_time}")
+                return result
+        except Exception as e:
+            logger.error(f"Failed to get price history by time range: {e}")
+            return []
+    
     async def clear_all_data(self) -> bool:
         """Clear all data from SQLite"""
         try:

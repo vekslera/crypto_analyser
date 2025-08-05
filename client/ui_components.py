@@ -17,7 +17,7 @@ from core.config import COLORS, CSS_SIZES, METRIC_LABELS, CHART_LABELS, RECENT_E
 
 
 def apply_custom_css():
-    """Apply custom CSS styling to the dashboard"""
+    """Apply custom CSS styling"""
     st.markdown("""
     <style>
         .main-header {
@@ -43,6 +43,7 @@ def apply_custom_css():
         }
     </style>
     """, unsafe_allow_html=True)
+
 
 
 def display_price_cards(current_price_data):

@@ -31,6 +31,11 @@ class DataReader(ABC):
     async def get_price_history(self, limit: int = 1000) -> List[PriceData]:
         """Get historical price data"""
         pass
+    
+    @abstractmethod
+    async def get_price_history_by_time_range(self, start_time: datetime, end_time: datetime) -> List[PriceData]:
+        """Get historical price data within a specific time range"""
+        pass
 
 
 class DataWriter(ABC):

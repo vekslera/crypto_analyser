@@ -16,10 +16,10 @@ from .app_config import FASTAPI_HOST, FASTAPI_PORT, STREAMLIT_PORT
 # This dictionary contains all parameters that users can modify, with their default values
 USER_PARAMETERS = {
     # GUI Settings
-    'auto_refresh_enabled': False,
+    'auto_refresh_enabled': True,  # Default to enabled for better UX
     'auto_refresh_interval': AUTO_REFRESH_INTERVAL,
     'selected_timezone': DEFAULT_TIMEZONE,
-    'time_range_selection': "Last 1000 points",
+    'time_range_selection': "Last 7 days",
     
     # Data Collection Settings
     'collection_interval': DEFAULT_COLLECTION_INTERVAL,
@@ -74,7 +74,7 @@ def reset_user_parameters():
         'auto_refresh_enabled': False,
         'auto_refresh_interval': AUTO_REFRESH_INTERVAL,
         'selected_timezone': DEFAULT_TIMEZONE,
-        'time_range_selection': "Last 1000 points",
+        'time_range_selection': "Last 7 days",
         'collection_interval': DEFAULT_COLLECTION_INTERVAL,
         'api_request_timeout': API_REQUEST_TIMEOUT,
         'db_query_limit': DEFAULT_DB_QUERY_LIMIT,

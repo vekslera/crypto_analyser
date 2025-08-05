@@ -17,11 +17,19 @@ sys.path.insert(0, project_root)
 from core.config import DEFAULT_DB_QUERY_LIMIT, FASTAPI_URL
 
 
-def get_price_data_from_db(limit=DEFAULT_DB_QUERY_LIMIT) -> pd.DataFrame:
-    """Get price data via API endpoint (DIP compliant)"""
+def get_price_data_from_db(time_params=None) -> pd.DataFrame:
+    """Get price data via API endpoint (DIP compliant) with optional time filtering"""
     try:
-        api_url = f"{FASTAPI_URL}/price/history"
-        response = requests.get(api_url, params={"limit": limit}, timeout=10)
+        if time_params and 'start_time' in time_params and 'end_time' in time_params:
+            # Use time-range endpoint
+            api_url = f"{FASTAPI_URL}/price/history/range"
+            params = time_params
+        else:
+            # Use limit-based endpoint for backwards compatibility
+            api_url = f"{FASTAPI_URL}/price/history"
+            params = {"limit": DEFAULT_DB_QUERY_LIMIT}
+            
+        response = requests.get(api_url, params=params, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
