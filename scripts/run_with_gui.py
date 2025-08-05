@@ -32,20 +32,38 @@ def signal_handler(signum, frame):
 def cleanup_and_exit():
     global scheduler_instance, fastapi_process, streamlit_process
     
-    # Stop scheduler
+    logger.info("Starting graceful shutdown...")
+    
+    # Stop scheduler first
     if scheduler_instance:
-        scheduler_instance.stop_scheduler()
+        try:
+            logger.info("Stopping price scheduler...")
+            scheduler_instance.stop_scheduler()
+            logger.info("Price scheduler stopped")
+        except Exception as e:
+            logger.error(f"Error stopping scheduler: {e}")
     
     # Terminate processes
-    for process in [fastapi_process, streamlit_process]:
+    processes = [
+        ("Streamlit", streamlit_process),
+        ("FastAPI", fastapi_process)
+    ]
+    
+    for name, process in processes:
         if process and process.poll() is None:
             try:
+                logger.info(f"Terminating {name} process...")
                 process.terminate()
                 process.wait(timeout=PROCESS_TERMINATION_TIMEOUT)
+                logger.info(f"{name} process terminated gracefully")
             except subprocess.TimeoutExpired:
+                logger.warning(f"{name} process didn't terminate gracefully, forcing kill...")
                 process.kill()
+                logger.info(f"{name} process killed")
+            except Exception as e:
+                logger.error(f"Error terminating {name} process: {e}")
     
-    logger.info("Shutdown complete")
+    logger.info("Shutdown complete - all processes stopped")
     sys.exit(0)
 
 async def initialize_container():
@@ -97,7 +115,14 @@ def run_streamlit():
     global streamlit_process
     time.sleep(STREAMLIT_STARTUP_DELAY)
     streamlit_process = subprocess.Popen(["streamlit", "run", "client/gui_dashboard.py", "--server.port", str(STREAMLIT_PORT)])
-    streamlit_process.wait()
+    
+    # Don't block on wait() - instead poll periodically to allow signal handling
+    try:
+        while streamlit_process.poll() is None:
+            time.sleep(1)  # Check every second if process is still running
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt in streamlit process")
+        cleanup_and_exit()
 
 def main():
     # Set up signal handlers

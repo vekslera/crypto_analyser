@@ -20,10 +20,33 @@ async def root():
 
 @router.post("/system/shutdown")
 async def shutdown_server():
-    """Gracefully shutdown the server"""
+    """Gracefully shutdown the entire application"""
     def shutdown():
-        # Send SIGTERM to current process
-        os.kill(os.getpid(), signal.SIGTERM)
+        try:
+            # On Windows, kill the entire process tree including parent
+            import subprocess
+            current_pid = os.getpid()
+            
+            # Get parent process ID
+            result = subprocess.run(['wmic', 'process', 'where', f'ProcessId={current_pid}', 'get', 'ParentProcessId', '/value'], 
+                                  capture_output=True, text=True)
+            
+            parent_pid = None
+            for line in result.stdout.split('\n'):
+                if 'ParentProcessId=' in line:
+                    parent_pid = int(line.split('=')[1].strip())
+                    break
+            
+            if parent_pid:
+                # Kill the parent process (which should kill all children)
+                os.kill(parent_pid, signal.SIGTERM)
+            else:
+                # Fallback: kill current process
+                os.kill(current_pid, signal.SIGTERM)
+                
+        except Exception as e:
+            # Fallback: kill current process
+            os.kill(os.getpid(), signal.SIGTERM)
     
     # Schedule shutdown after sending response
     asyncio.get_event_loop().call_later(1, shutdown)
