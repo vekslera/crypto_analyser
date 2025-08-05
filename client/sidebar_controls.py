@@ -72,24 +72,26 @@ def render_data_settings():
     """Render data settings controls"""
     st.sidebar.header(GUI_HEADERS['data_settings'])
     
-    # Time range selector
+    # Time range selector - session state should already be initialized
     time_range_options = list(get_user_parameter('time_range_options', TIME_RANGE_OPTIONS).keys())
-    try:
-        current_range_index = time_range_options.index(st.session_state.time_range)
-    except ValueError:
-        current_range_index = 2  # Default to "Last 1000 points"
+    
+    # The widget key should already be initialized in initialize_session_state()
+    widget_key = "time_range_select"
     
     time_range = st.sidebar.selectbox(
         "Time Range",
-        time_range_options,
-        index=current_range_index,
-        help="Select how much historical data to display"
+        options=time_range_options,
+        key=widget_key,
+        help="Select time period for historical data display"
     )
     
-    # Update time range in session state and USER_PARAMETERS
-    if time_range != st.session_state.time_range:
+    # Sync the main time_range session state with the widget value
+    if st.session_state.time_range != time_range:
         st.session_state.time_range = time_range
         set_user_parameter('time_range_selection', time_range)
+        # Clear cache to refresh data
+        if hasattr(st.session_state, 'last_data_fetch'):
+            st.session_state.last_data_fetch = 0
     
     return time_range
 
@@ -105,7 +107,7 @@ def render_user_settings_panel():
             'Auto Refresh': "✅ Enabled" if user_params.get('auto_refresh_enabled', False) else "❌ Disabled",
             'Refresh Interval': f"{user_params.get('auto_refresh_interval', 60)}s",
             'Timezone': user_params.get('selected_timezone', 'UTC'),
-            'Time Range': user_params.get('time_range_selection', 'Last 1000 points'),
+            'Time Range': user_params.get('time_range_selection', 'Last 7 days'),
             'Collection Interval': f"{user_params.get('collection_interval', 60)}s",
             'API Timeout': f"{user_params.get('api_request_timeout', 10)}s",
             'Rate Limit Interval': f"{user_params.get('rate_limit_interval', 15)}s",

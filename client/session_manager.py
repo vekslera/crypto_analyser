@@ -27,6 +27,21 @@ def initialize_page_config():
 
 def initialize_session_state():
     """Initialize session state with USER_PARAMETERS defaults"""
+    # Initialize time range FIRST to prevent widget conflicts
+    if 'time_range' not in st.session_state:
+        from core.config import TIME_RANGE_OPTIONS
+        default_time_range = "Last 7 days"
+        # Ensure the default exists in our options
+        if default_time_range in TIME_RANGE_OPTIONS:
+            st.session_state.time_range = get_user_parameter('time_range_selection', default_time_range)
+        else:
+            # Fallback to first available option
+            st.session_state.time_range = list(TIME_RANGE_OPTIONS.keys())[0]
+    
+    # Also initialize the widget-specific key
+    if 'time_range_select' not in st.session_state:
+        st.session_state.time_range_select = st.session_state.time_range
+    
     # Auto refresh settings (default to True for better UX)
     if 'auto_refresh' not in st.session_state:
         st.session_state.auto_refresh = get_user_parameter('auto_refresh_enabled', True)
@@ -38,12 +53,6 @@ def initialize_session_state():
     # Refresh timing
     if 'last_refresh' not in st.session_state:
         st.session_state.last_refresh = time.time()
-    
-    # UI state (removed stop_confirmation as stop button was removed)
-    
-    # Data display settings
-    if 'time_range' not in st.session_state:
-        st.session_state.time_range = get_user_parameter('time_range_selection', "Last 1000 points")
     
     # Current price cache
     if 'current_price' not in st.session_state:
@@ -73,20 +82,22 @@ def update_current_price_cache(price_data):
         st.session_state.current_price = price_data
 
 
-def should_fetch_historical_data(data_limit):
-    """Determine if historical data should be fetched"""
+def should_fetch_historical_data(cache_key):
+    """Determine if historical data should be fetched based on cache key"""
     return (
         st.session_state.historical_data is None or
         time.time() - st.session_state.last_data_fetch >= AUTO_REFRESH_INTERVAL or
-        len(st.session_state.historical_data) != data_limit  # Refetch if limit changed
+        getattr(st.session_state, 'last_cache_key', None) != cache_key  # Refetch if time range changed
     )
 
 
-def update_historical_data_cache(df):
+def update_historical_data_cache(df, cache_key=None):
     """Update the historical data in session state cache"""
     if df is not None and not df.empty:
         st.session_state.historical_data = df
         st.session_state.last_data_fetch = time.time()
+        if cache_key:
+            st.session_state.last_cache_key = cache_key
 
 
 def handle_auto_refresh(auto_refresh_enabled):
@@ -109,8 +120,26 @@ def handle_auto_refresh(auto_refresh_enabled):
             st.rerun()
 
 
-def get_data_limit_from_time_range(time_range):
-    """Convert time range selection to data limit"""
+def get_time_range_params(time_range):
+    """Convert time range selection to API parameters"""
     from core.config import TIME_RANGE_OPTIONS
-    limit_map = TIME_RANGE_OPTIONS
-    return limit_map.get(time_range)
+    from datetime import datetime, timedelta
+    
+    time_config = TIME_RANGE_OPTIONS.get(time_range)
+    
+    if time_config is None:  # "All data"
+        return None
+    
+    # Calculate timestamp for the time range
+    now = datetime.utcnow()
+    if 'hours' in time_config:
+        start_time = now - timedelta(hours=time_config['hours'])
+    elif 'days' in time_config:
+        start_time = now - timedelta(days=time_config['days'])
+    else:
+        return None
+    
+    return {
+        'start_time': start_time.isoformat(),
+        'end_time': now.isoformat()
+    }

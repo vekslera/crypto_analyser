@@ -33,11 +33,13 @@ DEFAULT_SERIES_LIMIT = 50
 RECENT_ENTRIES_DISPLAY_LIMIT = 10
 RECENT_DATA_TAIL_LIMIT = 10
 
-# Time Ranges for GUI
+# Time Ranges for GUI (now using time periods instead of point counts)
 TIME_RANGE_OPTIONS = {
-    "Last 100 points": 100,
-    "Last 500 points": 500,
-    "Last 1000 points": 1000,
+    "Last 24 hours": {"hours": 24},
+    "Last 7 days": {"days": 7},
+    "Last 30 days": {"days": 30},
+    "Last 1 year": {"days": 365},
+    "Last 5 years": {"days": 1825},
     "All data": None
 }
 

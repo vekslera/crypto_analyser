@@ -6,7 +6,7 @@ Handles crypto price, statistics, and data collection routes using dependency in
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 
 from ..dependency_container import container
 from ..services.crypto_service import CryptoService
@@ -14,6 +14,19 @@ from ..interfaces.database_interface import PriceData
 from core.config import DEFAULT_API_LIMIT, DEFAULT_SERIES_LIMIT, MESSAGES, HTTP_SERVICE_UNAVAILABLE, HTTP_NOT_FOUND
 
 router = APIRouter()
+
+def format_price_data(prices: List[PriceData]) -> List[Dict[str, Any]]:
+    """Format price data for API response"""
+    return [
+        {
+            "id": price.id,
+            "price": price.price,
+            "timestamp": price.timestamp,
+            "volume_24h": price.volume_24h,
+            "market_cap": price.market_cap
+        }
+        for price in prices
+    ]
 
 def get_crypto_service() -> CryptoService:
     """Dependency injection for CryptoService singleton"""
@@ -73,20 +86,34 @@ async def collect_price(background_tasks: BackgroundTasks):
 
 @router.get("/price/history")
 async def get_price_history(limit: int = DEFAULT_API_LIMIT):
-    """Get historical price data"""
+    """Get historical price data (limit-based query)"""
     crypto_service = get_crypto_service()
     prices = await crypto_service.get_price_history(limit)
+    return format_price_data(prices)
+
+@router.get("/price/history/range")
+async def get_price_history_by_range(
+    start_time: str,
+    end_time: str
+):
+    """Get historical price data within a specific time range"""
+    from datetime import datetime
     
-    return [
-        {
-            "id": price.id,
-            "price": price.price,
-            "timestamp": price.timestamp,
-            "volume_24h": price.volume_24h,
-            "market_cap": price.market_cap
-        }
-        for price in prices
-    ]
+    crypto_service = get_crypto_service()
+    
+    # Parse and validate timestamps
+    try:
+        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid timestamp format: {e}")
+    
+    # Validate time range
+    if start_dt >= end_dt:
+        raise HTTPException(status_code=400, detail="start_time must be before end_time")
+    
+    prices = await crypto_service.get_price_history_by_time_range(start_dt, end_dt)
+    return format_price_data(prices)
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_statistics():

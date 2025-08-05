@@ -22,7 +22,7 @@ from session_manager import (
     should_fetch_historical_data,
     update_historical_data_cache,
     handle_auto_refresh,
-    get_data_limit_from_time_range
+    get_time_range_params
 )
 from ui_components import (
     apply_custom_css,
@@ -68,10 +68,11 @@ def main():
         display_price_cards(current_price_data)
     
     # Get historical data with caching
-    data_limit = get_data_limit_from_time_range(time_range)
-    if should_fetch_historical_data(data_limit):
-        df = get_price_data_from_db(data_limit)
-        update_historical_data_cache(df)
+    time_params = get_time_range_params(time_range)
+    cache_key = time_range  # Use only the time range selection as cache key
+    if should_fetch_historical_data(cache_key):
+        df = get_price_data_from_db(time_params)
+        update_historical_data_cache(df, cache_key)
     else:
         df = st.session_state.historical_data
     

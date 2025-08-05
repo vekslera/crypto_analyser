@@ -71,6 +71,16 @@ class CryptoService:
             logger.error(f"Error getting price history: {e}")
             return []
     
+    async def get_price_history_by_time_range(self, start_time: datetime, end_time: datetime) -> List[PriceData]:
+        """Get historical price data within a specific time range"""
+        try:
+            prices = await self.database_repo.get_price_history_by_time_range(start_time, end_time)
+            logger.debug(f"Retrieved {len(prices)} historical prices from {start_time} to {end_time}")
+            return prices
+        except Exception as e:
+            logger.error(f"Error getting price history by time range: {e}")
+            return []
+    
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistical analysis of price data"""
         try:
