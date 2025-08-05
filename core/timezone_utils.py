@@ -6,6 +6,17 @@ import os
 # Default timezone - you can change this to your local timezone
 DEFAULT_TIMEZONE = 'UTC'  # Change this to your timezone like 'US/Eastern', 'Europe/London', 'Asia/Tokyo', etc.
 
+# Initialize USER_PARAMETERS timezone options on import
+def _initialize_user_parameters_timezone():
+    """Initialize timezone options in USER_PARAMETERS"""
+    try:
+        from .config import USER_PARAMETERS
+        if USER_PARAMETERS['timezone_options'] is None:
+            USER_PARAMETERS['timezone_options'] = get_available_timezones()
+    except ImportError:
+        # Ignore if config is not available during initial setup
+        pass
+
 def get_available_timezones():
     """Get list of common timezones"""
     common_timezones = [
@@ -86,3 +97,6 @@ def set_default_timezone(tz_name):
 def get_default_timezone():
     """Get the current default timezone"""
     return DEFAULT_TIMEZONE
+
+# Initialize timezone options when module is imported
+_initialize_user_parameters_timezone()

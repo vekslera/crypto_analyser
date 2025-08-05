@@ -53,7 +53,7 @@ def run_scheduler():
 
 def run_fastapi():
     import uvicorn
-    uvicorn.run("server.main:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
+    uvicorn.run("server.api_server:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
 
 def run_streamlit():
     global streamlit_process

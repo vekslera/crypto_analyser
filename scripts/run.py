@@ -35,7 +35,7 @@ def main():
     
     # Start the FastAPI server
     logger.info(MESSAGES['fastapi_starting'])
-    uvicorn.run("server.main:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
+    uvicorn.run("server.api_server:app", host=FASTAPI_HOST, port=FASTAPI_PORT, reload=False)
 
 if __name__ == "__main__":
     main()

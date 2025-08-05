@@ -1,48 +1,55 @@
+"""
+Price collection scheduler (DIP compliant)
+Schedules periodic price collection using dependency injection
+"""
+
 import asyncio
 import schedule
 import time
-from .bitcoin_service import BitcoinService
-from .database import SessionLocal, BitcoinPrice
 import logging
+import sys
+import os
+from typing import Optional
+
+# Add project root for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.logging_config import get_logger
+
+from .dependency_container import container
+from .services.crypto_service import CryptoService
 from core.config import DEFAULT_COLLECTION_INTERVAL, SCHEDULER_SLEEP_INTERVAL
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger("server.scheduler")
 
 class PriceScheduler:
+    """DIP-compliant price scheduler using dependency injection"""
+    
     def __init__(self, interval_seconds: int = DEFAULT_COLLECTION_INTERVAL):
-        self.bitcoin_service = BitcoinService()
         self.interval_seconds = interval_seconds
         self.running = False
+        self.crypto_service: Optional[CryptoService] = None
+    
+    def get_crypto_service(self) -> Optional[CryptoService]:
+        """Get crypto service singleton using dependency injection"""
+        if not container.is_initialized():
+            logger.error("Dependency container not initialized")
+            return None
+        
+        return container.get_crypto_service()
     
     async def collect_price_job(self):
+        """Collect and store cryptocurrency price using dependency injection"""
         try:
-            price_data = await self.bitcoin_service.fetch_bitcoin_price()
+            crypto_service = self.get_crypto_service()
+            if not crypto_service:
+                logger.error("Could not initialize crypto service")
+                return
+            
+            price_data = await crypto_service.fetch_and_store_current_price("bitcoin")
             if price_data:
-                db = SessionLocal()
-                try:
-                    db_price = BitcoinPrice(
-                        price=price_data['price'],
-                        timestamp=price_data['timestamp'],
-                        volume_24h=price_data.get('volume_24h'),
-                        market_cap=price_data.get('market_cap')
-                    )
-                    db.add(db_price)
-                    db.commit()
-                    
-                    self.bitcoin_service.add_to_series(
-                        price_data['price'], 
-                        price_data['timestamp']
-                    )
-                    logger.info(f"Successfully collected and stored Bitcoin price: ${price_data['price']:,.2f}")
-                    
-                except Exception as e:
-                    db.rollback()
-                    logger.error(f"Database error: {e}")
-                finally:
-                    db.close()
+                logger.info(f"Successfully collected and stored Bitcoin price: ${price_data.price:,.2f}")
             else:
-                logger.warning("Failed to fetch Bitcoin price data")
+                logger.warning("Failed to fetch and store Bitcoin price data")
                 
         except Exception as e:
             logger.error(f"Error in price collection job: {e}")
@@ -51,6 +58,11 @@ class PriceScheduler:
         asyncio.run(self.collect_price_job())
     
     def start_scheduler(self):
+        """Start the price collection scheduler"""
+        if not container.is_initialized():
+            logger.error("Cannot start scheduler: dependency container not initialized")
+            return
+        
         schedule.every(self.interval_seconds).seconds.do(self.run_collection_job)
         self.running = True
         logger.info(f"Price scheduler started - collecting every {self.interval_seconds} seconds")
