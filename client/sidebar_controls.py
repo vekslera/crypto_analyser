@@ -20,7 +20,7 @@ from core.config import (
     get_user_parameter, set_user_parameter, get_all_user_parameters
 )
 from core.timezone_utils import get_available_timezones, set_default_timezone
-from data_operations import clear_all_data, shutdown_application
+from data_operations import clear_all_data
 
 
 def render_control_buttons():
@@ -34,14 +34,10 @@ def render_control_buttons():
     refresh_button = st.sidebar.button(BUTTON_LABELS['refresh_now'])
     clear_data_button = st.sidebar.button(BUTTON_LABELS['clear_data'], type="secondary")
     
-    st.sidebar.markdown("---")
-    stop_button = st.sidebar.button(BUTTON_LABELS['stop_app'], type="primary", help=BUTTON_HELP['stop_app'])
-    
     return {
         'auto_refresh': auto_refresh,
         'refresh_button': refresh_button,
-        'clear_data_button': clear_data_button,
-        'stop_button': stop_button
+        'clear_data_button': clear_data_button
     }
 
 
@@ -148,8 +144,7 @@ def handle_button_actions(controls):
     """Handle actions from control buttons"""
     actions = {
         'refresh_requested': False,
-        'data_cleared': False,
-        'app_shutdown': False
+        'data_cleared': False
     }
     
     # Handle manual refresh
@@ -165,34 +160,6 @@ def handle_button_actions(controls):
             actions['data_cleared'] = True
         else:
             st.sidebar.error(UI_MESSAGES['failed_clear_data'])
-    
-    # Handle stop application
-    if controls['stop_button']:
-        st.session_state.stop_confirmation = True
-    
-    # Handle stop confirmation dialog
-    if st.session_state.stop_confirmation:
-        st.sidebar.warning(UI_MESSAGES['confirm_stop_warning'])
-        col1, col2 = st.sidebar.columns(2)
-        
-        with col1:
-            if st.button(BUTTON_LABELS['confirm_stop'], key="confirm_stop"):
-                st.sidebar.info(UI_MESSAGES['shutting_down'])
-                if shutdown_application():
-                    st.sidebar.success(UI_MESSAGES['app_stopped'])
-                    st.sidebar.info(UI_MESSAGES['close_browser'])
-                    actions['app_shutdown'] = True
-                    st.stop()
-                else:
-                    st.sidebar.success(UI_MESSAGES['shutdown_initiated'])
-                    st.sidebar.info(UI_MESSAGES['close_browser'])
-                    actions['app_shutdown'] = True
-                    st.stop()
-        
-        with col2:
-            if st.button(BUTTON_LABELS['cancel_stop'], key="cancel_stop"):
-                st.session_state.stop_confirmation = False
-                st.rerun()
     
     return actions
 

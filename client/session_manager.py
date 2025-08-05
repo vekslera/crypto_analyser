@@ -39,9 +39,7 @@ def initialize_session_state():
     if 'last_refresh' not in st.session_state:
         st.session_state.last_refresh = time.time()
     
-    # UI state
-    if 'stop_confirmation' not in st.session_state:
-        st.session_state.stop_confirmation = False
+    # UI state (removed stop_confirmation as stop button was removed)
     
     # Data display settings
     if 'time_range' not in st.session_state:
