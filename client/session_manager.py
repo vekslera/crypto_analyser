@@ -27,9 +27,9 @@ def initialize_page_config():
 
 def initialize_session_state():
     """Initialize session state with USER_PARAMETERS defaults"""
-    # Auto refresh settings
+    # Auto refresh settings (default to True for better UX)
     if 'auto_refresh' not in st.session_state:
-        st.session_state.auto_refresh = get_user_parameter('auto_refresh_enabled', False)
+        st.session_state.auto_refresh = get_user_parameter('auto_refresh_enabled', True)
     
     # Timezone settings
     if 'selected_timezone' not in st.session_state:

@@ -16,7 +16,7 @@ from .app_config import FASTAPI_HOST, FASTAPI_PORT, STREAMLIT_PORT
 # This dictionary contains all parameters that users can modify, with their default values
 USER_PARAMETERS = {
     # GUI Settings
-    'auto_refresh_enabled': False,
+    'auto_refresh_enabled': True,  # Default to enabled for better UX
     'auto_refresh_interval': AUTO_REFRESH_INTERVAL,
     'selected_timezone': DEFAULT_TIMEZONE,
     'time_range_selection': "Last 1000 points",

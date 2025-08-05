@@ -27,13 +27,8 @@ def render_control_buttons():
     """Render main control buttons"""
     st.sidebar.header(GUI_HEADERS['controls'])
     
-    # Auto refresh checkbox
-    auto_refresh = st.sidebar.checkbox(GUI_REFRESH_LABEL, value=st.session_state.auto_refresh)
-    
-    # Update session state and USER_PARAMETERS
-    if auto_refresh != st.session_state.auto_refresh:
-        st.session_state.auto_refresh = auto_refresh
-        set_user_parameter('auto_refresh_enabled', auto_refresh)
+    # Auto-refresh is now always enabled by default, no toggle needed
+    auto_refresh = st.session_state.auto_refresh
     
     # Action buttons
     refresh_button = st.sidebar.button(BUTTON_LABELS['refresh_now'])
@@ -111,7 +106,7 @@ def render_user_settings_panel():
         
         # Display key user settings in a readable format
         key_settings = {
-            'Auto Refresh': user_params.get('auto_refresh_enabled', False),
+            'Auto Refresh': "✅ Enabled" if user_params.get('auto_refresh_enabled', False) else "❌ Disabled",
             'Refresh Interval': f"{user_params.get('auto_refresh_interval', 60)}s",
             'Timezone': user_params.get('selected_timezone', 'UTC'),
             'Time Range': user_params.get('time_range_selection', 'Last 1000 points'),
@@ -123,11 +118,30 @@ def render_user_settings_panel():
         for key, value in key_settings.items():
             st.write(f"• **{key}:** {value}")
         
-        if st.button("🔄 Reset to Defaults", help="Reset all settings to default values"):
-            from core.config import reset_user_parameters
-            reset_user_parameters()
-            st.success("Settings reset to defaults!")
-            st.rerun()
+        st.markdown("---")
+        
+        # Auto-refresh control (less prominent location)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.session_state.auto_refresh:
+                if st.button("⏸️ Stop Auto-Refresh", help="Disable automatic data refresh", type="secondary"):
+                    st.session_state.auto_refresh = False
+                    set_user_parameter('auto_refresh_enabled', False)
+                    st.success("Auto-refresh disabled")
+                    st.rerun()
+            else:
+                if st.button("▶️ Start Auto-Refresh", help="Enable automatic data refresh", type="secondary"):
+                    st.session_state.auto_refresh = True
+                    set_user_parameter('auto_refresh_enabled', True)
+                    st.success("Auto-refresh enabled")
+                    st.rerun()
+        
+        with col2:
+            if st.button("🔄 Reset to Defaults", help="Reset all settings to default values", type="secondary"):
+                from core.config import reset_user_parameters
+                reset_user_parameters()
+                st.success("Settings reset to defaults!")
+                st.rerun()
 
 
 def handle_button_actions(controls):
