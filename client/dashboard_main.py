@@ -34,7 +34,7 @@ from ui_components import (
     display_footer
 )
 from sidebar_controls import render_all_sidebar_controls
-from chart_components import create_price_chart, create_volume_chart, create_statistics_display
+from chart_components import create_price_chart, create_combined_price_volume_chart, create_volume_chart, create_statistics_display
 from data_operations import get_price_data_from_db, get_current_price_from_api
 
 
@@ -77,22 +77,15 @@ def main():
         df = st.session_state.historical_data
     
     if not df.empty:
-        # Main price chart
+        # Combined price and volume chart
         st.plotly_chart(
-            create_price_chart(df, selected_timezone), 
+            create_combined_price_volume_chart(df, selected_timezone), 
             use_container_width=True
         )
         
         # Statistics metrics
         stats = create_statistics_display(df)
         display_statistics_metrics(stats)
-        
-        # Volume chart (if available)
-        if 'volume_24h' in df.columns and df['volume_24h'].notna().any():
-            st.plotly_chart(
-                create_volume_chart(df, selected_timezone), 
-                use_container_width=True
-            )
         
         # Recent data table
         display_recent_data_table(df, selected_timezone)
