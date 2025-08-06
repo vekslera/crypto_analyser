@@ -52,6 +52,26 @@ cd crypto_analyser
 pip install -r requirements.txt
 ```
 
+3. **Required: CoinMarketCap API Key Setup**
+   
+   The application requires a CoinMarketCap API key for trading volume data:
+   
+   a. Get a free API key from [CoinMarketCap API](https://coinmarketcap.com/api/)
+   
+   b. Set the environment variable:
+   ```bash
+   # Windows (Command Prompt)
+   set CMC_API_KEY=your-api-key-here
+   
+   # Windows (PowerShell)
+   $env:CMC_API_KEY="your-api-key-here"
+   
+   # Linux/Mac
+   export CMC_API_KEY=your-api-key-here
+   ```
+   
+   c. **Important**: Restart your IDE/Terminal after setting the environment variable to ensure it's properly inherited by the application.
+
 ## 🎯 Usage
 
 ### Start with GUI Dashboard (Recommended):

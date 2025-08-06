@@ -10,15 +10,30 @@ import os
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from server.scheduler import PriceScheduler
+from server.optimal_scheduler import OptimalScheduler  # Changed to OptimalScheduler
 from server.database import create_tables
 from server.dependency_container import container
 import logging
 import asyncio
 from core.config import *
+from core.api_config import VOLUME_COLLECTION_INTERVAL
 from core.logging_config import get_logger
 
+# Console logging is already handled by core.logging_config
+# Just ensure INFO level for root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Logging is handled by core.logging_config.get_logger() - no need for explicit setup
+
 logger = get_logger("scripts.run_with_gui")
+logger.info("Console logging enabled - you will see detailed logs in terminal")
+
+# Check environment variables
+import os
+cmc_key = os.getenv('CMC_API_KEY')
+if not cmc_key:
+    logger.warning("CMC_API_KEY not found - volume fetching may fail")
 
 # Global variables for process management
 scheduler_instance = None
@@ -101,7 +116,15 @@ def run_scheduler():
             logger.error("Container not initialized after 30 seconds, cannot start scheduler")
             return
         
-        scheduler_instance = PriceScheduler(interval_seconds=DEFAULT_COLLECTION_INTERVAL)
+        # Use OptimalScheduler with proper intervals
+        scheduler_instance = OptimalScheduler(
+            price_interval_seconds=DEFAULT_COLLECTION_INTERVAL,  # 60s for GUI updates
+            volume_interval_seconds=VOLUME_COLLECTION_INTERVAL   # 300s for volume + DB
+        )
+        logger.info("Starting OptimalScheduler with:")
+        logger.info(f"  • GUI price updates: every {DEFAULT_COLLECTION_INTERVAL}s")
+        logger.info(f"  • Volume + DB storage: every {VOLUME_COLLECTION_INTERVAL}s")
+        logger.info("  • Detailed logs will appear in this terminal")
         logger.info("Starting price scheduler...")
         scheduler_instance.start_scheduler()
     except Exception as e:
@@ -150,6 +173,8 @@ def main():
         
         # Wait a moment for FastAPI to start
         time.sleep(FASTAPI_STARTUP_DELAY)
+        
+# CMC API key check was done at startup
         
         # Start the background scheduler (after container is initialized)
         scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)

@@ -167,3 +167,185 @@ class CryptoService:
         except Exception as e:
             logger.error(f"Error getting provider info: {e}")
             return {"provider_name": self.provider_name, "error": str(e)}
+    
+    async def store_price_data(self, price_data: PriceData) -> bool:
+        """Store price data directly"""
+        try:
+            success = await self.database_repo.save_price(price_data)
+            if success:
+                # Add to shared data series for real-time access
+                shared_data.add_price(price_data.price, price_data.timestamp)
+                logger.debug(f"Stored price data: ${price_data.price:,.2f}")
+            return success
+        except Exception as e:
+            logger.error(f"Error storing price data: {e}")
+            return False
+    
+    async def update_latest_volume(self, volume_24h: float) -> bool:
+        """Update the most recent record with new volume data"""
+        try:
+            # Get the most recent record
+            recent_prices = await self.database_repo.get_recent_prices(1)
+            if not recent_prices:
+                logger.warning("No recent records found to update volume")
+                return False
+            
+            latest_record = recent_prices[0]
+            
+            # Update with new volume data
+            updated_data = PriceData(
+                price=latest_record.price,
+                market_cap=latest_record.market_cap,
+                volume_24h=volume_24h,
+                timestamp=latest_record.timestamp
+            )
+            
+            # Use database's update method if available, otherwise delete and re-insert
+            success = await self._update_record_volume(latest_record.timestamp, volume_24h)
+            
+            if success:
+                logger.debug(f"Updated latest record volume: ${volume_24h:,.0f}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error updating latest volume: {e}")
+            return False
+    
+    async def _update_record_volume(self, timestamp: datetime, volume_24h: float) -> bool:
+        """Update volume for a specific timestamp record"""
+        try:
+            # This would ideally be a database method, but for now we'll work around it
+            # by checking if the database repository has an update method
+            if hasattr(self.database_repo, 'update_volume_by_timestamp'):
+                return await self.database_repo.update_volume_by_timestamp(timestamp, volume_24h)
+            else:
+                # Fallback: update using raw SQL if it's SQLite
+                if hasattr(self.database_repo, 'connection'):
+                    # SQLite specific update
+                    cursor = self.database_repo.connection.cursor()
+                    cursor.execute(
+                        "UPDATE bitcoin_prices SET volume_24h = ? WHERE timestamp = ?",
+                        (volume_24h, timestamp.isoformat())
+                    )
+                    self.database_repo.connection.commit()
+                    return cursor.rowcount > 0
+                else:
+                    logger.error("Cannot update volume - no update method available")
+                    return False
+        except Exception as e:
+            logger.error(f"Error in _update_record_volume: {e}")
+            return False
+    
+    async def store_price_data_with_velocity(self, price_data: PriceData) -> bool:
+        """Store price data and calculate volume velocity"""
+        try:
+            logger.info("  - Volume velocity calculation starting...")
+            
+            # Get the last record to calculate velocity
+            recent_prices = await self.database_repo.get_recent_prices(1)
+            
+            volume_velocity = None
+            
+            if recent_prices:
+                prev_record = recent_prices[0]
+                logger.info(f"  - Previous record found: {prev_record.timestamp}")
+                logger.info(f"    Previous volume: ${prev_record.volume_24h:,.0f}" if prev_record.volume_24h else "    Previous volume: None")
+                
+                if prev_record.volume_24h and price_data.volume_24h:
+                    # Calculate time difference in minutes
+                    time_diff = (price_data.timestamp - prev_record.timestamp).total_seconds() / 60
+                    
+                    if time_diff > 0:
+                        # Volume velocity = (volume_change) / (time_diff_in_minutes)  
+                        volume_change = price_data.volume_24h - prev_record.volume_24h
+                        volume_velocity = volume_change / time_diff
+                        
+                        logger.info(f"  - Volume velocity calculation:")
+                        logger.info(f"    Current volume: ${price_data.volume_24h:,.0f}")
+                        logger.info(f"    Previous volume: ${prev_record.volume_24h:,.0f}")
+                        logger.info(f"    Volume change: ${volume_change:,.0f}")
+                        logger.info(f"    Time difference: {time_diff:.1f} minutes")
+                        logger.info(f"    Volume velocity: ${volume_velocity:,.0f}/min")
+                        
+                        # Check for unusual velocity
+                        if abs(volume_velocity) > 1000000000:  # > 1B/min
+                            logger.warning(f"    ⚠️  HIGH velocity detected: ${volume_velocity:,.0f}/min")
+                        elif abs(volume_velocity) < 100000:  # < 100K/min
+                            logger.info(f"    SUCCESS Normal velocity: ${volume_velocity:,.0f}/min")
+                        else:
+                            logger.info(f"    SUCCESS Moderate velocity: ${volume_velocity:,.0f}/min")
+                    else:
+                        logger.warning(f"  - Invalid time difference: {time_diff} minutes")
+                else:
+                    if not prev_record.volume_24h:
+                        logger.info("  - Previous record has no volume data")
+                    if not price_data.volume_24h:
+                        logger.warning("  - Current record has no volume data!")
+                    logger.info("  - Cannot calculate velocity - missing volume data")
+            else:
+                logger.info("  - No previous records found - this is the first record")
+                logger.info("  - Volume velocity will be None for first record")
+            
+            # Create enhanced data with velocity
+            logger.info("  - Creating enhanced data record...")
+            
+            # Try to create record with velocity
+            try:
+                if volume_velocity is not None:
+                    # Attempt to include velocity in the record
+                    enhanced_data = type(price_data)(
+                        price=price_data.price,
+                        market_cap=price_data.market_cap,
+                        volume_24h=price_data.volume_24h,
+                        timestamp=price_data.timestamp,
+                        volume_velocity=volume_velocity
+                    )
+                    logger.info("  - Enhanced record created with velocity")
+                else:
+                    enhanced_data = price_data
+                    logger.info("  - Standard record created (no velocity)")
+            except Exception as ve:
+                # If velocity field not supported, use standard record
+                logger.debug(f"  - Velocity field not supported in PriceData: {ve}")
+                enhanced_data = price_data
+            
+            # Store the data
+            logger.info("  - Attempting database insertion...")
+            success = await self.database_repo.save_price(enhanced_data)
+            
+            if success:
+                logger.info("  - SUCCESS Database insertion successful")
+                
+                # Add to shared data series for real-time access
+                shared_data.add_price(price_data.price, price_data.timestamp)
+                logger.debug("  SUCCESS: Price added to shared data series for GUI")
+                
+                # Summary log
+                if volume_velocity is not None:
+                    logger.info(f"  SUCCESS: Record stored with velocity: ${volume_velocity:,.0f}/min")
+                else:
+                    logger.info("  SUCCESS: Record stored without velocity (first record or missing data)")
+                    
+                return True
+            else:
+                logger.error("  - ERROR Database insertion failed")
+                return False
+            
+        except Exception as e:
+            logger.error(f"  - ERROR CRITICAL ERROR in store_price_data_with_velocity: {e}")
+            import traceback
+            logger.error(f"  - Full traceback:\n{traceback.format_exc()}")
+            
+            # Fallback to regular storage
+            logger.info("  - Attempting fallback to regular storage...")
+            try:
+                fallback_success = await self.store_price_data(price_data)
+                if fallback_success:
+                    logger.info("  - SUCCESS Fallback storage successful")
+                else:
+                    logger.error("  - ERROR Fallback storage also failed")
+                return fallback_success
+            except Exception as fe:
+                logger.error(f"  - ERROR Fallback storage error: {fe}")
+                return False

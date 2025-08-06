@@ -53,6 +53,9 @@ def setup_file_logger(name: str, log_file: Path, level: int = logging.INFO) -> l
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     
+    # Prevent propagation to root logger to avoid duplicate console output
+    logger.propagate = False
+    
     return logger
 
 
