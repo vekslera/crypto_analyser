@@ -270,7 +270,7 @@ class CryptoService:
                         
                         # Check for unusual velocity
                         if abs(volume_velocity) > 1000000000:  # > 1B/min
-                            logger.warning(f"    ⚠️  HIGH velocity detected: ${volume_velocity:,.0f}/min")
+                            logger.warning(f"    WARNING: HIGH velocity detected: ${volume_velocity:,.0f}/min")
                         elif abs(volume_velocity) < 100000:  # < 100K/min
                             logger.info(f"    SUCCESS Normal velocity: ${volume_velocity:,.0f}/min")
                         else:

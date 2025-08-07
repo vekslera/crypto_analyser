@@ -23,6 +23,7 @@ def format_price_data(prices: List[PriceData]) -> List[Dict[str, Any]]:
             "price": price.price,
             "timestamp": price.timestamp,
             "volume_24h": price.volume_24h,
+            "volume_velocity": price.volume_velocity,
             "market_cap": price.market_cap
         }
         for price in prices
@@ -39,6 +40,7 @@ class PriceResponse(BaseModel):
     price: float
     timestamp: datetime
     volume_24h: float = None
+    volume_velocity: float = None
     market_cap: float = None
 
 class StatsResponse(BaseModel):
@@ -57,26 +59,43 @@ async def collect_and_store_price():
 
 @router.get("/price/current", response_model=PriceResponse)
 async def get_current_price():
-    """Get current cryptocurrency price (from recent data, don't fetch new)"""
+    """Get current cryptocurrency price (from real-time series, updated every 60s)"""
     crypto_service = get_crypto_service()
     
-    # Get the most recent stored price instead of fetching new data
-    recent_prices = await crypto_service.get_recent_prices(limit=1)
+    # Get the latest price from pandas series (real-time 60s updates)
+    series = crypto_service.get_recent_series(limit=1)
     
-    if not recent_prices:
-        # If no data exists, then fetch once
+    if len(series) > 0:
+        # Use real-time price from series
+        latest_price = series.iloc[-1]
+        latest_timestamp = series.index[-1]
+        
+        # Get volume/market cap from most recent database record (5min updates)
+        recent_prices = await crypto_service.get_recent_prices(limit=1)
+        volume_24h = recent_prices[0].volume_24h if recent_prices else None
+        volume_velocity = recent_prices[0].volume_velocity if recent_prices else None
+        market_cap = recent_prices[0].market_cap if recent_prices else None
+        
+        return PriceResponse(
+            price=float(latest_price),
+            timestamp=latest_timestamp,
+            volume_24h=volume_24h,
+            volume_velocity=volume_velocity,
+            market_cap=market_cap
+        )
+    else:
+        # Fallback: if no series data, fetch once
         price_data = await crypto_service.fetch_and_store_current_price("bitcoin")
         if not price_data:
             raise HTTPException(status_code=HTTP_SERVICE_UNAVAILABLE, detail=MESSAGES['unable_to_fetch'])
-    else:
-        price_data = recent_prices[0]
-    
-    return PriceResponse(
-        price=price_data.price,
-        timestamp=price_data.timestamp,
-        volume_24h=price_data.volume_24h,
-        market_cap=price_data.market_cap
-    )
+        
+        return PriceResponse(
+            price=price_data.price,
+            timestamp=price_data.timestamp,
+            volume_24h=price_data.volume_24h,
+            volume_velocity=price_data.volume_velocity,
+            market_cap=price_data.market_cap
+        )
 
 @router.post("/price/collect")
 async def collect_price(background_tasks: BackgroundTasks):
