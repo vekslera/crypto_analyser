@@ -25,6 +25,7 @@ class BitcoinPriceModel(Base):
     price = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     volume_24h = Column(Float, nullable=True)
+    volume_velocity = Column(Float, nullable=True)  # USD per minute
     market_cap = Column(Float, nullable=True)
 
     def to_price_data(self) -> PriceData:
@@ -34,6 +35,7 @@ class BitcoinPriceModel(Base):
             price=self.price,
             timestamp=self.timestamp,
             volume_24h=self.volume_24h,
+            volume_velocity=self.volume_velocity,
             market_cap=self.market_cap
         )
 
@@ -73,14 +75,51 @@ class SQLiteRepository(DatabaseRepository):
             raise RuntimeError("Database not initialized. Call initialize() first.")
         return self.SessionLocal()
     
+    async def _calculate_volume_velocity(self, new_volume: float, new_timestamp: datetime) -> Optional[float]:
+        """Calculate volume velocity based on previous data point"""
+        try:
+            with self._get_session() as session:
+                # Get the most recent price entry
+                last_price = session.query(BitcoinPriceModel)\
+                    .filter(BitcoinPriceModel.volume_24h.isnot(None))\
+                    .order_by(BitcoinPriceModel.timestamp.desc())\
+                    .first()
+                
+                if not last_price or not last_price.volume_24h:
+                    return None
+                
+                # Calculate time difference in minutes
+                time_diff = (new_timestamp - last_price.timestamp).total_seconds() / 60.0
+                if time_diff <= 0:
+                    return None
+                
+                # Calculate volume change per minute (USD/min)
+                volume_change = new_volume - last_price.volume_24h
+                volume_velocity = volume_change / time_diff
+                
+                logger.debug(f"Volume velocity: ${volume_velocity:,.0f}/min (change: ${volume_change:,.0f} over {time_diff:.1f}min)")
+                return volume_velocity
+                
+        except Exception as e:
+            logger.error(f"Failed to calculate volume velocity: {e}")
+            return None
+
     async def save_price(self, price_data: PriceData) -> bool:
         """Save price data to SQLite"""
         try:
+            # Calculate volume velocity if not provided
+            if price_data.volume_velocity is None and price_data.volume_24h is not None:
+                price_data.volume_velocity = await self._calculate_volume_velocity(
+                    price_data.volume_24h, 
+                    price_data.timestamp
+                )
+            
             with self._get_session() as session:
                 db_price = BitcoinPriceModel(
                     price=price_data.price,
                     timestamp=price_data.timestamp,
                     volume_24h=price_data.volume_24h,
+                    volume_velocity=price_data.volume_velocity,
                     market_cap=price_data.market_cap
                 )
                 session.add(db_price)

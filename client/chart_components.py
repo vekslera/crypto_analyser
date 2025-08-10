@@ -111,15 +111,15 @@ def create_combined_price_volume_chart(df, timezone_name=None):
         yaxis='y'
     ))
     
-    # Add volume line (secondary y-axis) - only if volume data exists
-    if 'volume_24h' in df_local.columns and df_local['volume_24h'].notna().any():
+    # Add volume velocity line (secondary y-axis) - only if volume velocity data exists
+    if 'volume_velocity' in df_local.columns and df_local['volume_velocity'].notna().any():
         fig.add_trace(go.Scatter(
             x=df_local['timestamp'],
-            y=df_local['volume_24h'],
+            y=df_local['volume_velocity'],
             mode='lines',
-            name='Trading Volume',
+            name='Volume Velocity',
             line=dict(color=CHART_CONFIG['volume_bar_color'], width=2),
-            hovertemplate='<b>Volume: $%{y:,.0f}</b><br>Time: %{x}<extra></extra>',
+            hovertemplate='<b>Volume Velocity: $%{y:,.0f}/min</b><br>Time: %{x}<extra></extra>',
             yaxis='y2'
         ))
     
@@ -127,7 +127,7 @@ def create_combined_price_volume_chart(df, timezone_name=None):
     chart_title = CHART_LABELS['price_chart_title'].format(timezone=timezone_name if timezone_name else "UTC")
     fig.update_layout(
         title={
-            'text': f"{chart_title} with Trading Volume",
+            'text': f"{chart_title} with Volume Velocity",
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20, 'color': '#1f2937'}
@@ -149,10 +149,10 @@ def create_combined_price_volume_chart(df, timezone_name=None):
         # Secondary y-axis (right) - Volume
         yaxis2=dict(
             title=dict(
-                text='Trading Volume (USD)',
+                text='Volume Velocity (USD/min)',
                 font=dict(color=CHART_CONFIG['volume_bar_color'])
             ),
-            tickformat='$,.0s',
+            tickformat='$,.0f',
             side='right',
             overlaying='y',
             showgrid=False,

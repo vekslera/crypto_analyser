@@ -15,6 +15,7 @@ class PriceData:
     price: float
     timestamp: datetime
     volume_24h: Optional[float] = None
+    volume_velocity: Optional[float] = None  # USD per minute
     market_cap: Optional[float] = None
     id: Optional[int] = None
 

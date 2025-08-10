@@ -59,6 +59,7 @@ def get_current_price_from_api() -> Optional[Dict[str, Any]]:
                 'price': data['price'],
                 'timestamp': datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00')),
                 'volume_24h': data.get('volume_24h'),
+                'volume_velocity': data.get('volume_velocity'),
                 'market_cap': data.get('market_cap')
             }
         return None

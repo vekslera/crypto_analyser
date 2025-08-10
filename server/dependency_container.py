@@ -20,6 +20,7 @@ from .interfaces.crypto_data_interface import (
 )
 from .implementations.sqlite_repository import SQLiteRepository
 from .implementations.coingecko_provider import CoinGeckoProvider
+from .implementations.hybrid_provider import HybridProvider
 from .services.crypto_service import CryptoService
 
 logger = get_logger("server.dependency_container")
@@ -60,6 +61,9 @@ class DependencyContainer:
                 base_url = kwargs.get("coingecko_base_url", "https://api.coingecko.com/api/v3")
                 timeout = kwargs.get("api_timeout", 10)
                 self._crypto_data_provider = CoinGeckoProvider(base_url, timeout)
+            elif crypto_provider.lower() == "hybrid":
+                timeout = kwargs.get("api_timeout", 10)
+                self._crypto_data_provider = HybridProvider(timeout)
             # Easy to add other providers here:
             # elif crypto_provider.lower() == "binance":
             #     self._crypto_data_provider = BinanceProvider(**kwargs)
