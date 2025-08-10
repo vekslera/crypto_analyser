@@ -1,6 +1,6 @@
 """
 Multi-source crypto data provider
-Fetches data from multiple APIs and compares reliability
+Fetches data from multiple APIs and compares reliability with tenacity retry logic
 """
 
 import requests
@@ -8,6 +8,13 @@ import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
 
 from ..interfaces.crypto_data_interface import CryptoDataProvider
 from ..interfaces.database_interface import PriceData
@@ -136,8 +143,30 @@ class MultiSourceProvider(CryptoDataProvider):
             logger.debug(f"CoinGecko fetch failed: {e}")
             return None
     
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((requests.exceptions.RequestException, requests.exceptions.Timeout)),
+        before_sleep=before_sleep_log(logger, logging.WARNING, exc_info=True),
+        reraise=True
+    )
+    def _make_cmc_request(self, url: str, headers: Dict[str, str], params: Dict[str, Any]) -> requests.Response:
+        """Make CoinMarketCap API request with retry logic"""
+        response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
+        
+        # Check for rate limiting or server errors
+        if response.status_code == 429:
+            logger.warning(f"Rate limited by CoinMarketCap API, will retry after backoff")
+            raise requests.exceptions.RequestException(f"Rate limited: {response.status_code}")
+        elif response.status_code >= 500:
+            logger.warning(f"Server error from CoinMarketCap API: {response.status_code}, will retry")
+            raise requests.exceptions.RequestException(f"Server error: {response.status_code}")
+        
+        response.raise_for_status()
+        return response
+
     async def _fetch_coinmarketcap(self, symbol: str) -> Optional[PriceData]:
-        """Fetch from CoinMarketCap API (free tier available)"""
+        """Fetch from CoinMarketCap API with retry logic"""
         try:
             # CoinMarketCap uses different symbol mapping
             symbol_mapping = {'bitcoin': '1'}  # Bitcoin's CoinMarketCap ID
@@ -164,8 +193,7 @@ class MultiSourceProvider(CryptoDataProvider):
                 'convert': 'USD'
             }
             
-            response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_cmc_request(url, headers, params)
             
             data = response.json()
             
@@ -183,8 +211,11 @@ class MultiSourceProvider(CryptoDataProvider):
                 timestamp=datetime.utcnow()
             )
             
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"CoinMarketCap fetch failed after retries: {e}")
+            return None
         except Exception as e:
-            logger.debug(f"CoinMarketCap fetch failed: {e}")
+            logger.debug(f"CoinMarketCap unexpected error: {e}")
             return None
     
     async def _fetch_mobula(self, symbol: str) -> Optional[PriceData]:

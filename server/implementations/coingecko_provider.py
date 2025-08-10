@@ -1,17 +1,38 @@
 """
 CoinGecko implementation of crypto data provider
-Concrete implementation of CryptoDataProvider using CoinGecko API
+Concrete implementation of CryptoDataProvider using CoinGecko API with tenacity retry logic
 """
 
 import requests
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    retry_if_result,
+    before_sleep_log
+)
 
 from ..interfaces.crypto_data_interface import CryptoDataProvider
 from ..interfaces.database_interface import PriceData
 
 logger = logging.getLogger(__name__)
+
+
+def should_retry_on_status(response):
+    """Determine if we should retry based on HTTP status code"""
+    if response is None:
+        return True
+    # Retry on rate limiting (429), server errors (5xx), but not on client errors (4xx except 429)
+    return response.status_code in [429, 500, 502, 503, 504] if hasattr(response, 'status_code') else True
+
+
+def is_response_valid(response):
+    """Check if response is valid and shouldn't be retried"""
+    return response is not None and hasattr(response, 'status_code') and 200 <= response.status_code < 300
 
 
 class CoinGeckoProvider(CryptoDataProvider):
@@ -22,8 +43,30 @@ class CoinGeckoProvider(CryptoDataProvider):
         self.timeout = timeout
         self.provider_name = "CoinGecko"
     
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((requests.exceptions.RequestException, requests.exceptions.Timeout)),
+        before_sleep=before_sleep_log(logger, logging.WARNING, exc_info=True),
+        reraise=True
+    )
+    def _make_api_request(self, url: str, params: Dict[str, Any]) -> requests.Response:
+        """Make API request with retry logic"""
+        response = requests.get(url, params=params, timeout=self.timeout)
+        
+        # Check for rate limiting or server errors
+        if response.status_code == 429:
+            logger.warning(f"Rate limited by CoinGecko API, will retry after backoff")
+            raise requests.exceptions.RequestException(f"Rate limited: {response.status_code}")
+        elif response.status_code >= 500:
+            logger.warning(f"Server error from CoinGecko API: {response.status_code}, will retry")
+            raise requests.exceptions.RequestException(f"Server error: {response.status_code}")
+        
+        response.raise_for_status()
+        return response
+
     async def fetch_current_price(self, symbol: str = "bitcoin") -> Optional[PriceData]:
-        """Fetch current price from CoinGecko API"""
+        """Fetch current price from CoinGecko API with retry logic"""
         try:
             url = f"{self.base_url}/simple/price"
             params = {
@@ -34,8 +77,7 @@ class CoinGeckoProvider(CryptoDataProvider):
                 'include_last_updated_at': 'true'
             }
             
-            response = requests.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_api_request(url, params)
             
             data = response.json()
             if symbol not in data:
@@ -55,14 +97,14 @@ class CoinGeckoProvider(CryptoDataProvider):
             return price_data
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API request failed: {e}")
+            logger.error(f"CoinGecko API request failed after retries: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error fetching price: {e}")
             return None
     
     async def fetch_historical_data(self, symbol: str, days: int = 30) -> List[PriceData]:
-        """Fetch historical price data from CoinGecko"""
+        """Fetch historical price data from CoinGecko with retry logic"""
         try:
             url = f"{self.base_url}/coins/{symbol}/market_chart"
             params = {
@@ -71,8 +113,7 @@ class CoinGeckoProvider(CryptoDataProvider):
                 'interval': 'daily' if days > 1 else 'hourly'
             }
             
-            response = requests.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_api_request(url, params)
             
             data = response.json()
             prices = data.get('prices', [])
@@ -97,18 +138,58 @@ class CoinGeckoProvider(CryptoDataProvider):
             return result
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko historical data request failed: {e}")
+            logger.error(f"CoinGecko historical data request failed after retries: {e}")
             return []
         except Exception as e:
             logger.error(f"Unexpected error fetching historical data: {e}")
             return []
+
+    async def fetch_interval_volume_data(self, symbol: str = "bitcoin", days: int = 1) -> List[PriceData]:
+        """Fetch interval volume data from CoinGecko market chart endpoint (requires Demo API key)"""
+        try:
+            url = f"{self.base_url}/coins/{symbol}/market_chart"
+            params = {
+                'vs_currency': 'usd',
+                'days': days
+            }
+            
+            response = self._make_api_request(url, params)
+            
+            data = response.json()
+            prices = data.get('prices', [])
+            market_caps = data.get('market_caps', [])
+            volumes = data.get('total_volumes', [])
+            
+            result = []
+            for i in range(len(volumes)):
+                if i < len(prices) and i < len(market_caps):
+                    timestamp_ms, volume = volumes[i]
+                    _, price = prices[i]
+                    _, market_cap = market_caps[i]
+                    
+                    price_data = PriceData(
+                        price=price,
+                        timestamp=datetime.fromtimestamp(timestamp_ms / 1000),
+                        market_cap=market_cap,
+                        volume_24h=volume
+                    )
+                    result.append(price_data)
+            
+            logger.debug(f"Fetched {len(result)} interval volume data points for {symbol}")
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"CoinGecko interval volume request failed after retries: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error fetching interval volume data: {e}")
+            return []
     
     async def get_supported_symbols(self) -> List[str]:
-        """Get list of supported cryptocurrency symbols from CoinGecko"""
+        """Get list of supported cryptocurrency symbols from CoinGecko with retry logic"""
         try:
             url = f"{self.base_url}/coins/list"
-            response = requests.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_api_request(url, {})
             
             data = response.json()
             symbols = [coin['id'] for coin in data]
@@ -117,27 +198,23 @@ class CoinGeckoProvider(CryptoDataProvider):
             return symbols
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get supported symbols: {e}")
+            logger.error(f"Failed to get supported symbols after retries: {e}")
             return []
         except Exception as e:
             logger.error(f"Unexpected error getting symbols: {e}")
             return []
     
     async def health_check(self) -> bool:
-        """Check if CoinGecko API is accessible"""
+        """Check if CoinGecko API is accessible with retry logic"""
         try:
             url = f"{self.base_url}/ping"
-            response = requests.get(url, timeout=self.timeout)
+            response = self._make_api_request(url, {})
             
-            if response.status_code == 200:
-                logger.debug("CoinGecko API health check passed")
-                return True
-            else:
-                logger.warning(f"CoinGecko API health check failed: {response.status_code}")
-                return False
+            logger.debug("CoinGecko API health check passed")
+            return True
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"CoinGecko API health check failed: {e}")
+            logger.error(f"CoinGecko API health check failed after retries: {e}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error in health check: {e}")
