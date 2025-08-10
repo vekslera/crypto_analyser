@@ -2,6 +2,7 @@
 API configuration and settings
 External API settings, rate limiting, and data collection parameters
 """
+import os
 
 # API Configuration
 COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
@@ -18,7 +19,7 @@ RATE_LIMIT_CACHE_DURATION = 30  # seconds to cache API responses
 RATE_LIMIT_MAX_CALLS_PER_MINUTE = 4
 
 # Scheduler Configuration
-DEFAULT_COLLECTION_INTERVAL = 60  # seconds between price collections
+DEFAULT_COLLECTION_INTERVAL = 300  # seconds between collections (CoinGecko - 5 minutes)
 SCHEDULER_SLEEP_INTERVAL = 1  # seconds to sleep in scheduler loop
 
 # GUI Configuration
@@ -58,3 +59,6 @@ COINGECKO_PARAMS = {
     'include_24hr_vol': 'true',
     'include_last_updated_at': 'true'
 }
+
+# CoinMarketCap API Key filename
+CMC_API_KEY = os.environ.get("CMC_API_KEY")

@@ -62,7 +62,7 @@ MESSAGES = {
     'stopping_app': "Stopping Crypto Analyser...",
     'no_historical_data': "No historical data available. Start the data collection service first!",
     'start_collection': "Run `python run.py` to start collecting crypto price data.",
-    'data_source_footer': f"**Data Source:** CoinGecko API | **Collection Rate:** 60 seconds | **Auto-refresh:** 60 seconds (when enabled)"
+    'data_source_footer': f"**Data Source:** CoinGecko API | **Collection Rate:** 300 seconds | **Auto-refresh:** 60 seconds (when enabled)"
 }
 
 # Logging Messages
@@ -102,6 +102,7 @@ METRIC_LABELS = {
     'current_price': "Current Bitcoin Price",
     'market_cap': "Market Cap",
     'volume_24h': "24h Volume",
+    'volume_velocity': "Volume Velocity (USD/min)",
     'data_points': "Data Points",
     'average_price': "Average Price",
     'min_price': "Min Price",
@@ -113,11 +114,14 @@ CHART_LABELS = {
     'main_title': "📊 Crypto Analyser",
     'price_chart_title': "Bitcoin Price Chart ({timezone})",
     'volume_chart_title': "24h Trading Volume ({timezone})",
+    'velocity_chart_title': "Volume Velocity ({timezone})",
     'recent_data_title': "Recent Price Data ({timezone})",
     'time_axis': "Time",
     'price_axis': "Price (USD)",
     'volume_axis': "Volume (USD)",
-    'volume_name': "24h Volume"
+    'velocity_axis': "Volume Velocity (USD/min)",
+    'volume_name': "24h Volume",
+    'velocity_name': "Volume Velocity"
 }
 
 # Warning and Info Messages

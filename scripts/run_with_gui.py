@@ -10,13 +10,13 @@ import os
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from server.optimal_scheduler import OptimalScheduler  # Changed to OptimalScheduler
+from server.simple_scheduler import SimpleScheduler  # Changed to SimpleScheduler
 from server.database import create_tables
 from server.dependency_container import container
 import logging
 import asyncio
 from core.config import *
-from core.api_config import VOLUME_COLLECTION_INTERVAL
+from core.api_config import DEFAULT_COLLECTION_INTERVAL
 from core.logging_config import get_logger
 
 # Console logging is already handled by core.logging_config
@@ -116,14 +116,13 @@ def run_scheduler():
             logger.error("Container not initialized after 30 seconds, cannot start scheduler")
             return
         
-        # Use OptimalScheduler with proper intervals
-        scheduler_instance = OptimalScheduler(
-            price_interval_seconds=DEFAULT_COLLECTION_INTERVAL,  # 60s for GUI updates
-            volume_interval_seconds=VOLUME_COLLECTION_INTERVAL   # 300s for volume + DB
+        # Use SimpleScheduler with unified 5-minute interval
+        scheduler_instance = SimpleScheduler(
+            collection_interval_seconds=DEFAULT_COLLECTION_INTERVAL  # 300s for unified data collection
         )
-        logger.info("Starting OptimalScheduler with:")
-        logger.info(f"  • GUI price updates: every {DEFAULT_COLLECTION_INTERVAL}s")
-        logger.info(f"  • Volume + DB storage: every {VOLUME_COLLECTION_INTERVAL}s")
+        logger.info("Starting SimpleScheduler with:")
+        logger.info(f"  • Unified data collection: every {DEFAULT_COLLECTION_INTERVAL}s")
+        logger.info(f"  • Data: Price, Volume, Market Cap from CoinGecko")
         logger.info("  • Detailed logs will appear in this terminal")
         logger.info("Starting price scheduler...")
         scheduler_instance.start_scheduler()

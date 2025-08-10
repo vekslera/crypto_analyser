@@ -131,7 +131,7 @@ def display_no_data_message():
 def display_footer():
     """Display footer information"""
     st.markdown("---")
-    st.markdown("**Data Source:** CoinGecko API | **Collection Rate:** 60 seconds | **Auto-refresh:** 60 seconds (when enabled)")
+    st.markdown("**Data Source:** CoinGecko API | **Collection Rate:** 300 seconds | **Auto-refresh:** 60 seconds (when enabled)")
 
 
 def show_main_header():
