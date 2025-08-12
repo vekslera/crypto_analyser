@@ -18,6 +18,7 @@ from tenacity import (
 
 from ..interfaces.crypto_data_interface import CryptoDataProvider
 from ..interfaces.database_interface import PriceData
+from core.api_config import CG_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,15 @@ class CoinGeckoProvider(CryptoDataProvider):
         reraise=True
     )
     def _make_api_request(self, url: str, params: Dict[str, Any]) -> requests.Response:
-        """Make API request with retry logic"""
-        response = requests.get(url, params=params, timeout=self.timeout)
+        """Make API request with retry logic and Demo API key"""
+        headers = {}
+        
+        # Add Demo API key if available
+        if CG_API_KEY:
+            headers['x-cg-demo-api-key'] = CG_API_KEY
+            logger.debug("Using CoinGecko Demo API key")
+        
+        response = requests.get(url, params=params, headers=headers, timeout=self.timeout)
         
         # Check for rate limiting or server errors
         if response.status_code == 429:

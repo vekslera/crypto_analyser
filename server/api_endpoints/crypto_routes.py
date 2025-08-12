@@ -6,7 +6,7 @@ Handles crypto price, statistics, and data collection routes using dependency in
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from ..dependency_container import container
 from ..services.crypto_service import CryptoService
@@ -24,7 +24,9 @@ def format_price_data(prices: List[PriceData]) -> List[Dict[str, Any]]:
             "timestamp": price.timestamp,
             "volume_24h": price.volume_24h,
             "volume_velocity": price.volume_velocity,
-            "market_cap": price.market_cap
+            "market_cap": price.market_cap,
+            "volatility": price.volatility,
+            "money_flow": price.money_flow
         }
         for price in prices
     ]
@@ -39,9 +41,11 @@ def get_crypto_service() -> CryptoService:
 class PriceResponse(BaseModel):
     price: float
     timestamp: datetime
-    volume_24h: float = None
-    volume_velocity: float = None
-    market_cap: float = None
+    volume_24h: Optional[float] = None
+    volume_velocity: Optional[float] = None
+    market_cap: Optional[float] = None
+    volatility: Optional[float] = None
+    money_flow: Optional[float] = None
 
 class StatsResponse(BaseModel):
     count: int
@@ -75,13 +79,17 @@ async def get_current_price():
         volume_24h = recent_prices[0].volume_24h if recent_prices else None
         volume_velocity = recent_prices[0].volume_velocity if recent_prices else None
         market_cap = recent_prices[0].market_cap if recent_prices else None
+        volatility = recent_prices[0].volatility if recent_prices else None
+        money_flow = recent_prices[0].money_flow if recent_prices else None
         
         return PriceResponse(
             price=float(latest_price),
             timestamp=latest_timestamp,
             volume_24h=volume_24h,
             volume_velocity=volume_velocity,
-            market_cap=market_cap
+            market_cap=market_cap,
+            volatility=volatility,
+            money_flow=money_flow
         )
     else:
         # Fallback: if no series data, fetch once
@@ -94,7 +102,9 @@ async def get_current_price():
             timestamp=price_data.timestamp,
             volume_24h=price_data.volume_24h,
             volume_velocity=price_data.volume_velocity,
-            market_cap=price_data.market_cap
+            market_cap=price_data.market_cap,
+            volatility=price_data.volatility,
+            money_flow=price_data.money_flow
         )
 
 @router.post("/price/collect")

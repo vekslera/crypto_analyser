@@ -18,6 +18,8 @@ class BitcoinPrice(Base):
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     volume_24h = Column(Float, nullable=True)
     market_cap = Column(Float, nullable=True)
+    volatility = Column(Float, nullable=True)
+    money_flow = Column(Float, nullable=True)
 
 def create_tables():
     Base.metadata.create_all(bind=engine)

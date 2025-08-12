@@ -27,16 +27,19 @@ class BitcoinPriceModel(Base):
     volume_24h = Column(Float, nullable=True)
     volume_velocity = Column(Float, nullable=True)  # USD per minute
     market_cap = Column(Float, nullable=True)
+    volatility = Column(Float, nullable=True)
+    money_flow = Column(Float, nullable=True)
 
     def to_price_data(self) -> PriceData:
         """Convert SQLAlchemy model to PriceData"""
         return PriceData(
-            id=self.id,
             price=self.price,
             timestamp=self.timestamp,
             volume_24h=self.volume_24h,
             volume_velocity=self.volume_velocity,
-            market_cap=self.market_cap
+            market_cap=self.market_cap,
+            volatility=self.volatility,
+            money_flow=self.money_flow
         )
 
 
@@ -120,7 +123,9 @@ class SQLiteRepository(DatabaseRepository):
                     timestamp=price_data.timestamp,
                     volume_24h=price_data.volume_24h,
                     volume_velocity=price_data.volume_velocity,
-                    market_cap=price_data.market_cap
+                    market_cap=price_data.market_cap,
+                    volatility=price_data.volatility,
+                    money_flow=price_data.money_flow
                 )
                 session.add(db_price)
                 session.commit()

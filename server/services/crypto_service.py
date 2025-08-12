@@ -242,8 +242,8 @@ class CryptoService:
         try:
             logger.info("  - Volume velocity calculation starting...")
             
-            # Get the last record to calculate velocity
-            recent_prices = await self.database_repo.get_recent_prices(1)
+            # Get recent records to calculate velocity, volatility, and money flow
+            recent_prices = await self.database_repo.get_recent_prices(10)
             
             volume_velocity = None
             
@@ -287,24 +287,60 @@ class CryptoService:
                 logger.info("  - No previous records found - this is the first record")
                 logger.info("  - Volume velocity will be None for first record")
             
-            # Create enhanced data with velocity
+            # Calculate volatility and money flow
+            volatility = None
+            money_flow = None
+            
+            if len(recent_prices) >= 4:  # Need at least 4 previous points for 5-point rolling calculation
+                logger.info("  - Calculating volatility and money flow...")
+                # Create price series including new data point
+                prices = [data.price for data in reversed(recent_prices)] + [price_data.price]
+                
+                # Calculate returns
+                returns = []
+                for i in range(1, len(prices)):
+                    returns.append((prices[i] - prices[i-1]) / prices[i-1])
+                
+                # Calculate rolling volatility (5-minute window)
+                if len(returns) >= 4:  # Need at least 4 returns for 5-point window
+                    recent_returns = returns[-4:]  # Last 4 returns
+                    mean_return = sum(recent_returns) / len(recent_returns)
+                    variance = sum([(r - mean_return)**2 for r in recent_returns]) / (len(recent_returns) - 1)
+                    volatility = variance ** 0.5 * 100  # Convert to percentage
+                    
+                    # Calculate BTC volume from volatility using power law
+                    k = 1.0e-2  # Adjusted for more reasonable BTC volume estimates
+                    beta = 0.2
+                    btc_volume = (volatility / 100 / k) ** (1 / beta)
+                    
+                    # Calculate money flow with direction
+                    price_change = price_data.price - recent_prices[0].price
+                    money_flow = btc_volume * price_change
+                    
+                    logger.info(f"    Volatility: {volatility:.3f}%")
+                    logger.info(f"    Estimated BTC volume: {btc_volume:,.2f} BTC")
+                    logger.info(f"    Money flow: ${money_flow:+,.0f}")
+                else:
+                    logger.info("  - Not enough returns for volatility calculation")
+            else:
+                logger.info("  - Not enough historical data for volatility/money flow calculation")
+            
+            # Create enhanced data with velocity, volatility, and money flow
             logger.info("  - Creating enhanced data record...")
             
-            # Try to create record with velocity
+            # Try to create record with all calculated metrics
             try:
-                if volume_velocity is not None:
-                    # Attempt to include velocity in the record
-                    enhanced_data = type(price_data)(
-                        price=price_data.price,
-                        market_cap=price_data.market_cap,
-                        volume_24h=price_data.volume_24h,
-                        timestamp=price_data.timestamp,
-                        volume_velocity=volume_velocity
-                    )
-                    logger.info("  - Enhanced record created with velocity")
-                else:
-                    enhanced_data = price_data
-                    logger.info("  - Standard record created (no velocity)")
+                # Attempt to include all metrics in the record
+                enhanced_data = type(price_data)(
+                    price=price_data.price,
+                    market_cap=price_data.market_cap,
+                    volume_24h=price_data.volume_24h,
+                    timestamp=price_data.timestamp,
+                    volume_velocity=volume_velocity,
+                    volatility=volatility,
+                    money_flow=money_flow
+                )
+                logger.info("  - Enhanced record created with velocity, volatility, and money flow")
             except Exception as ve:
                 # If velocity field not supported, use standard record
                 logger.debug(f"  - Velocity field not supported in PriceData: {ve}")

@@ -51,14 +51,17 @@ HTTP_RATE_LIMIT = 429
 HTTP_SERVICE_UNAVAILABLE = 503
 HTTP_INTERNAL_ERROR = 500
 
+# CoinMarketCap API Key filename
+CMC_API_KEY = os.environ.get("CMC_API_KEY")
+CG_API_KEY = os.environ.get("CG_API_KEY")
+
 # API Parameters
 COINGECKO_PARAMS = {
     'ids': 'bitcoin',
     'vs_currencies': 'usd',
     'include_market_cap': 'true',
     'include_24hr_vol': 'true',
-    'include_last_updated_at': 'true'
+    'include_last_updated_at': 'true',
+    'x_cg_demo_api_key': CG_API_KEY
 }
 
-# CoinMarketCap API Key filename
-CMC_API_KEY = os.environ.get("CMC_API_KEY")

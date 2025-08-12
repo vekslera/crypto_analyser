@@ -95,10 +95,10 @@ def display_statistics_metrics(stats):
 
 
 def display_recent_data_table(df, selected_timezone):
-    """Display recent data table with timezone conversion"""
+    """Display recent data table with timezone conversion including volatility and money flow"""
     st.subheader(CHART_LABELS['recent_data_title'].format(timezone=selected_timezone))
     
-    # Convert timestamps to local timezone for display
+    # Take recent entries from the dataset (volatility and money_flow are pre-calculated in DB)
     recent_df = df.tail(RECENT_ENTRIES_DISPLAY_LIMIT).copy()
     
     if selected_timezone != 'UTC':
@@ -117,8 +117,20 @@ def display_recent_data_table(df, selected_timezone):
     recent_df['Price'] = recent_df['price'].apply(lambda x: f"${x:,.2f}")
     recent_df['Timestamp'] = recent_df['timestamp']
     
-    # Display only the relevant columns
-    display_df = recent_df[['Timestamp', 'Price']].copy()
+    # Handle volatility column (might not exist in older data)
+    if 'volatility' in recent_df.columns:
+        recent_df['Volatility'] = recent_df['volatility'].apply(lambda x: f'{x:.3f}%' if pd.notna(x) else 'N/A')
+    else:
+        recent_df['Volatility'] = 'N/A'
+    
+    # Handle money_flow column (might not exist in older data)
+    if 'money_flow' in recent_df.columns:
+        recent_df['Money Flow'] = recent_df['money_flow'].apply(lambda x: f'${x:+,.0f}' if pd.notna(x) else 'N/A')
+    else:
+        recent_df['Money Flow'] = 'N/A'
+    
+    # Display the relevant columns
+    display_df = recent_df[['Timestamp', 'Price', 'Volatility', 'Money Flow']].copy()
     st.dataframe(display_df.iloc[::-1], use_container_width=True)
 
 

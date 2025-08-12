@@ -90,44 +90,63 @@ def create_price_chart(df, timezone_name=None):
 
 
 def create_combined_price_volume_chart(df, timezone_name=None):
-    """Create combined price and volume chart with dual y-axes"""
+    """Create combined chart with price, volatility, and money flow on three y-axes"""
     if df.empty:
         return go.Figure()
     
     # Convert timestamps to local timezone
     df_local = _convert_timestamps_to_timezone(df, timezone_name)
     
-    # Create figure with secondary y-axis
+    # Create figure with multiple y-axes
     fig = go.Figure()
     
-    # Add price line (primary y-axis)
+    # Add price line (primary y-axis) - Blue
     fig.add_trace(go.Scatter(
         x=df_local['timestamp'],
         y=df_local['price'],
         mode='lines',
         name='Bitcoin Price',
-        line=dict(color=CHART_CONFIG['price_line_color'], width=3),
+        line=dict(color='#2E86AB', width=3),  # Blue
         hovertemplate='<b>Price: $%{y:,.2f}</b><br>Time: %{x}<extra></extra>',
         yaxis='y'
     ))
     
-    # Add volume velocity line (secondary y-axis) - only if volume velocity data exists
-    if 'volume_velocity' in df_local.columns and df_local['volume_velocity'].notna().any():
-        fig.add_trace(go.Scatter(
-            x=df_local['timestamp'],
-            y=df_local['volume_velocity'],
-            mode='lines',
-            name='Volume Velocity',
-            line=dict(color=CHART_CONFIG['volume_bar_color'], width=2),
-            hovertemplate='<b>Volume Velocity: $%{y:,.0f}/min</b><br>Time: %{x}<extra></extra>',
-            yaxis='y2'
-        ))
+    # Use pre-calculated volatility and money flow from database
+    # No need to calculate here anymore - data comes from DB
+        
+    # Add volatility line (secondary y-axis) if available
+    if 'volatility' in df_local.columns:
+        valid_volatility = df_local['volatility'].notna()
+        if valid_volatility.any():
+            fig.add_trace(go.Scatter(
+                x=df_local.loc[valid_volatility, 'timestamp'],
+                y=df_local.loc[valid_volatility, 'volatility'],
+                mode='lines',
+                name='Volatility (%)',
+                line=dict(color='#A23B72', width=2),  # Purple/Magenta
+                hovertemplate='<b>Volatility: %{y:.3f}%</b><br>Time: %{x}<extra></extra>',
+                yaxis='y2'
+            ))
     
-    # Update layout with dual y-axes
+    # Add money flow line (third y-axis) if available
+    if 'money_flow' in df_local.columns:
+        valid_flow = df_local['money_flow'].notna()
+        if valid_flow.any():
+            fig.add_trace(go.Scatter(
+                x=df_local.loc[valid_flow, 'timestamp'],
+                y=df_local.loc[valid_flow, 'money_flow'],
+                mode='lines',
+                name='Money Flow',
+                line=dict(color='#F18F01', width=2),  # Orange
+                hovertemplate='<b>Money Flow: $%{y:+,.0f}</b><br>Time: %{x}<extra></extra>',
+                yaxis='y3'
+            ))
+    
+    # Update layout with three y-axes
     chart_title = CHART_LABELS['price_chart_title'].format(timezone=timezone_name if timezone_name else "UTC")
     fig.update_layout(
         title={
-            'text': f"{chart_title} with Volume Velocity",
+            'text': f"{chart_title} - Price, Volatility & Money Flow",
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20, 'color': '#1f2937'}
@@ -140,72 +159,116 @@ def create_combined_price_volume_chart(df, timezone_name=None):
         ),
         # Primary y-axis (left) - Price
         yaxis=dict(
-            title=CHART_LABELS['price_axis'],
+            title=dict(
+                text='Price (USD)',
+                font=dict(color='#2E86AB')
+            ),
             gridcolor=CHART_CONFIG['grid_color'],
             showgrid=True,
             tickformat=CHART_CONFIG['tick_format_currency'],
-            side='left'
+            side='left',
+            tickfont=dict(color='#2E86AB')
         ),
-        # Secondary y-axis (right) - Volume
+        # Secondary y-axis (right) - Volatility
         yaxis2=dict(
             title=dict(
-                text='Volume Velocity (USD/min)',
-                font=dict(color=CHART_CONFIG['volume_bar_color'])
+                text='Volatility (%)',
+                font=dict(color='#A23B72')
             ),
-            tickformat='$,.0f',
+            tickformat='.3f',
             side='right',
             overlaying='y',
             showgrid=False,
-            tickfont=dict(color=CHART_CONFIG['volume_bar_color'])
+            tickfont=dict(color='#A23B72'),
+            anchor='free',
+            position=0.97
+        ),
+        # Third y-axis (far right) - Money Flow
+        yaxis3=dict(
+            title=dict(
+                text='Money Flow (USD)',
+                font=dict(color='#F18F01')
+            ),
+            tickformat='$+,.0f',
+            side='right',
+            overlaying='y',
+            showgrid=False,
+            tickfont=dict(color='#F18F01'),
+            anchor='free',
+            position=1.0
         ),
         plot_bgcolor=CHART_CONFIG['background_color'],
         paper_bgcolor=CHART_CONFIG['background_color'],
         hovermode='x unified',
-        height=600,  # Slightly taller to accommodate dual axes
+        height=700,  # Taller to accommodate three axes
         showlegend=True,
         legend=dict(
             x=0.02,
             y=0.98,
-            bgcolor='rgba(255, 255, 255, 0.8)',
+            bgcolor='rgba(255, 255, 255, 0.9)',
             bordercolor='rgba(0, 0, 0, 0.2)',
             borderwidth=1
-        )
+        ),
+        margin=dict(r=120)  # Extra right margin for third y-axis
     )
     
     return fig
 
 
-def create_volume_chart(df, timezone_name=None):
-    """Create interactive volume chart with timezone support"""
-    if df.empty or 'volume_24h' not in df.columns:
+def create_money_flow_chart(df, timezone_name=None):
+    """Create money flow chart based on volatility analysis"""
+    if df.empty:
         return go.Figure()
     
     # Convert timestamps to local timezone
     df_local = _convert_timestamps_to_timezone(df, timezone_name)
     
+    if len(df_local) <= 1:
+        return go.Figure()
+    
+    # Calculate price returns and volatility
+    df_local['returns'] = df_local['price'].pct_change()
+    df_local['volatility'] = df_local['returns'].rolling(window=5, min_periods=2).std()
+    
+    # Calculate BTC volume from volatility using power law: sigma = k * V^beta
+    # Solving for V: V = (sigma / k)^(1/beta)
+    k = 1.0e-4  # calibration constant
+    beta = 0.2  # power law exponent
+    
+    # Calculate estimated BTC volume (in BTC units)
+    df_local['btc_volume'] = (df_local['volatility'] / k) ** (1 / beta)
+    
+    # Calculate money flow: X = V * price_change (in USD) with direction
+    df_local['price_change'] = df_local['price'].diff()
+    df_local['money_flow'] = df_local['btc_volume'] * df_local['price_change']
+    
     fig = go.Figure()
     
-    fig.add_trace(go.Bar(
-        x=df_local['timestamp'],
-        y=df_local['volume_24h'],
-        name=CHART_LABELS['volume_name'],
-        marker_color=CHART_CONFIG['volume_bar_color'],
-        hovertemplate='<b>Volume: $%{y:,.0f}</b><br>Time: %{x}<extra></extra>'
-    ))
+    # Only plot where we have valid money flow data
+    valid_data = df_local['money_flow'].notna()
+    if valid_data.any():
+        fig.add_trace(go.Scatter(
+            x=df_local.loc[valid_data, 'timestamp'],
+            y=df_local.loc[valid_data, 'money_flow'],
+            mode='lines',
+            name='Money Flow',
+            line=dict(color='#e74c3c', width=2),
+            hovertemplate='<b>Money Flow: $%{y:+,.0f}</b><br>Time: %{x}<extra></extra>'
+        ))
     
-    volume_title = CHART_LABELS['volume_chart_title'].format(timezone=timezone_name if timezone_name else "UTC")
+    flow_title = f"Bitcoin Money Flow Analysis ({timezone_name if timezone_name else 'UTC'})"
     fig.update_layout(
         title={
-            'text': volume_title,
+            'text': flow_title,
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20, 'color': '#1f2937'}
         },
         xaxis=dict(title=CHART_LABELS['time_axis'], gridcolor=CHART_CONFIG['grid_color']),
-        yaxis=dict(title=CHART_LABELS['volume_axis'], gridcolor=CHART_CONFIG['grid_color'], tickformat=CHART_CONFIG['tick_format_currency']),
+        yaxis=dict(title='Money Flow (USD)', gridcolor=CHART_CONFIG['grid_color'], tickformat='$+,.0f'),
         plot_bgcolor=CHART_CONFIG['background_color'],
         paper_bgcolor=CHART_CONFIG['background_color'],
-        height=300
+        height=400
     )
     
     return fig

@@ -17,6 +17,8 @@ class PriceData:
     volume_24h: Optional[float] = None
     volume_velocity: Optional[float] = None  # USD per minute
     market_cap: Optional[float] = None
+    volatility: Optional[float] = None
+    money_flow: Optional[float] = None
     id: Optional[int] = None
 
 
