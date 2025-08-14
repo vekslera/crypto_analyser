@@ -12,7 +12,7 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 # Import and run the GUI version
-from scripts.run_with_gui import main
+from scripts.runners.run_with_gui import main
 
 if __name__ == "__main__":
     main()

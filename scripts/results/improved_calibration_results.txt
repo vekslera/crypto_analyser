@@ -1,0 +1,14 @@
+IMPROVED VOLATILITY-VOLUME CALIBRATION RESULTS
+==================================================
+
+Time lag applied: 1 hour
+Data points used: 4982
+
+IMPROVED POWER LAW PARAMETERS:
+--------------------------------
+k = 1.000000e-12
+beta = 1.865877
+R² = 0.149751
+
+MODEL: sigma = k * V^beta
+Where V is BTC volume at time t, sigma is volatility at time t+1h

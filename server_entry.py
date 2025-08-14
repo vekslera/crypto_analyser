@@ -12,7 +12,7 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 # Import and run the server version
-from scripts.run import main
+from scripts.runners.run import main
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,30 @@
+DETAILED VOLATILITY-VOLUME MODEL RESULTS
+=============================================
+
+Time lag applied: 1 hour (volume at t predicts volatility at t+1h)
+
+PIECEWISE LINEAR MODEL RESULTS:
+-----------------------------------
+Overall R^2 = 0.165068
+Breakpoint volume = 289915 BTC
+
+Low Volume Regime (V <= 289915 BTC):
+  sigma = 1.926185e-08 * V + 0.003506
+  Correlation: r = 0.0696 (p = 5.05e-04)
+
+High Volume Regime (V > 289915 BTC):
+  sigma = 1.609411e-07 * V + -0.032804
+  Correlation: r = 0.3098 (p = 1.52e-56)
+
+SQUARE ROOT MODEL RESULTS:
+------------------------------
+sigma = 1.770011e-04 * sqrt(V) + -0.080479
+R^2 = 0.153545
+Parameter uncertainties:
+  a = 1.77e-04 +/- 5.89e-06
+  b = -0.0805 +/- 0.0033
+
+MODEL COMPARISON:
+-----------------
+Piecewise Linear model shows better fit
+Suggests different volatility regimes at different volume levels

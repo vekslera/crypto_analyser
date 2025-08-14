@@ -1,0 +1,36 @@
+VOLATILITY-VOLUME RELATIONSHIP CALIBRATION RESULTS
+=======================================================
+
+Calibration Date: 2025-08-13 00:25:02.342894
+Data Points Used: 139
+
+CALIBRATED PARAMETERS:
+----------------------
+k (calibration constant): 3.630166e-05
+beta (power law exponent): 0.197392
+
+POWER LAW MODEL:
+-----------------
+sigma = 3.63e-05 * V^0.197
+Where:
+  sigma = volatility (standard deviation of returns)
+  V = BTC trading volume (24h)
+
+MODEL VALIDATION:
+------------------
+R-squared: 0.065749
+Correlation: 0.366726
+Mean Absolute Percentage Error: 62.79%
+
+USAGE IN APPLICATION:
+----------------------
+Update server/services/crypto_service.py:
+k = 3.630166e-05
+beta = 0.197392
+
+MONEY FLOW CALCULATION:
+------------------------
+1. Calculate volatility: sigma = std(price_returns)
+2. Estimate BTC volume: V = (sigma / 3.63e-05)^(1/0.197)
+3. Calculate money flow: X = V * delta_P
+   Where delta_P = price change
