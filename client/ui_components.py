@@ -123,14 +123,14 @@ def display_recent_data_table(df, selected_timezone):
     else:
         recent_df['Volatility'] = 'N/A'
     
-    # Handle money_flow column (might not exist in older data)
-    if 'money_flow' in recent_df.columns:
-        recent_df['Money Flow'] = recent_df['money_flow'].apply(lambda x: f'${x:+,.0f}' if pd.notna(x) else 'N/A')
-    else:
-        recent_df['Money Flow'] = 'N/A'
+    # Handle money_flow column (might not exist in older data) - COMMENTED OUT FOR NOW
+    # if 'money_flow' in recent_df.columns:
+    #     recent_df['Money Flow'] = recent_df['money_flow'].apply(lambda x: f'${x:+,.0f}' if pd.notna(x) else 'N/A')
+    # else:
+    #     recent_df['Money Flow'] = 'N/A'
     
-    # Display the relevant columns
-    display_df = recent_df[['Timestamp', 'Price', 'Volatility', 'Money Flow']].copy()
+    # Display the relevant columns (Money Flow temporarily removed)
+    display_df = recent_df[['Timestamp', 'Price', 'Volatility']].copy()
     st.dataframe(display_df.iloc[::-1], use_container_width=True)
 
 

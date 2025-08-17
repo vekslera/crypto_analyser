@@ -245,6 +245,13 @@ class CryptoService:
             # Get recent records to calculate velocity, volatility, and money flow
             recent_prices = await self.database_repo.get_recent_prices(10)
             
+            # Get 24 hours of data for volatility calculation using timestamp range
+            from datetime import timedelta
+            twenty_four_hours_ago = price_data.timestamp - timedelta(hours=24)
+            daily_prices = await self.database_repo.get_price_history_by_time_range(
+                twenty_four_hours_ago, price_data.timestamp
+            )
+            
             volume_velocity = None
             
             if recent_prices:
@@ -287,43 +294,54 @@ class CryptoService:
                 logger.info("  - No previous records found - this is the first record")
                 logger.info("  - Volume velocity will be None for first record")
             
-            # Calculate volatility and money flow
+            # Calculate volatility and money flow using 24-hour data
             volatility = None
             money_flow = None
             
-            if len(recent_prices) >= 4:  # Need at least 4 previous points for 5-point rolling calculation
-                logger.info("  - Calculating volatility and money flow...")
-                # Create price series including new data point
-                prices = [data.price for data in reversed(recent_prices)] + [price_data.price]
+            # Calculate 24-hour volatility using timestamp-based data
+            if len(daily_prices) >= 2:  # Need at least 2 data points for volatility calculation
+                logger.info(f"  - Calculating 24-hour volatility using {len(daily_prices)} data points...")
                 
-                # Calculate returns
+                # Create price series including new data point (ensure chronological order)
+                all_prices = sorted(daily_prices + [price_data], key=lambda x: x.timestamp)
+                prices = [data.price for data in all_prices]
+                
+                # Calculate returns for the entire 24-hour period
                 returns = []
                 for i in range(1, len(prices)):
                     returns.append((prices[i] - prices[i-1]) / prices[i-1])
                 
-                # Calculate rolling volatility (5-minute window)
-                if len(returns) >= 4:  # Need at least 4 returns for 5-point window
-                    recent_returns = returns[-4:]  # Last 4 returns
-                    mean_return = sum(recent_returns) / len(recent_returns)
-                    variance = sum([(r - mean_return)**2 for r in recent_returns]) / (len(recent_returns) - 1)
-                    volatility = variance ** 0.5 * 100  # Convert to percentage
+                # Calculate 24-hour volatility using proper statistical formula
+                if len(returns) >= 2:  # Need at least 2 returns
+                    n = len(returns)
+                    mean_return = sum(returns) / n
+                    # Proper variance calculation: Σ(x - μ)² / (n-1) 
+                    variance = sum([(r - mean_return)**2 for r in returns]) / (n - 1)
+                    volatility = (variance ** 0.5) * 100  # Convert to percentage
+                    
+                    logger.info(f"    24-hour period: {twenty_four_hours_ago} to {price_data.timestamp}")
+                    logger.info(f"    Data points: {len(daily_prices)} historical + 1 current = {len(all_prices)} total")
+                    logger.info(f"    Returns count: {n}")
+                    logger.info(f"    24-hour volatility: {volatility:.4f}%")
                     
                     # Calculate BTC volume from volatility using power law
                     k = 1.0e-2  # Adjusted for more reasonable BTC volume estimates
                     beta = 0.2
                     btc_volume = (volatility / 100 / k) ** (1 / beta)
                     
-                    # Calculate money flow with direction
-                    price_change = price_data.price - recent_prices[0].price
-                    money_flow = btc_volume * price_change
-                    
-                    logger.info(f"    Volatility: {volatility:.3f}%")
-                    logger.info(f"    Estimated BTC volume: {btc_volume:,.2f} BTC")
-                    logger.info(f"    Money flow: ${money_flow:+,.0f}")
+                    # Calculate money flow with direction using recent price change
+                    if recent_prices:
+                        price_change = price_data.price - recent_prices[0].price
+                        money_flow = btc_volume * price_change
+                        logger.info(f"    Estimated BTC volume: {btc_volume:,.2f} BTC")
+                        logger.info(f"    Money flow: ${money_flow:+,.0f}")
+                    else:
+                        logger.info("    No recent price data for money flow calculation")
                 else:
                     logger.info("  - Not enough returns for volatility calculation")
             else:
-                logger.info("  - Not enough historical data for volatility/money flow calculation")
+                logger.info(f"  - Insufficient 24-hour data for volatility calculation (only {len(daily_prices)} points)")
+                logger.info("  - Need at least 2 data points within 24-hour window")
             
             # Create enhanced data with velocity, volatility, and money flow
             logger.info("  - Creating enhanced data record...")

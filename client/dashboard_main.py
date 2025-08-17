@@ -34,7 +34,7 @@ from ui_components import (
     display_footer
 )
 from sidebar_controls import render_all_sidebar_controls
-from chart_components import create_price_chart, create_combined_price_volume_chart, create_money_flow_chart, create_statistics_display
+from chart_components import create_price_chart, create_combined_price_volume_chart, create_statistics_display  # create_money_flow_chart temporarily removed
 from data_operations import get_price_data_from_db, get_current_price_from_api
 
 
