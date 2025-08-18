@@ -34,7 +34,7 @@ from ui_components import (
     display_footer
 )
 from sidebar_controls import render_all_sidebar_controls
-from chart_components import create_price_chart, create_combined_price_volume_chart, create_statistics_display  # create_money_flow_chart temporarily removed
+from chart_components import create_unified_chart, create_statistics_display  # create_money_flow_chart temporarily removed
 from data_operations import get_price_data_from_db, get_current_price_from_api
 
 
@@ -55,6 +55,7 @@ def main():
     auto_refresh_enabled = sidebar_state['controls']['auto_refresh']
     selected_timezone = sidebar_state['selected_timezone']
     time_range = sidebar_state['time_range']
+    selected_charts = sidebar_state['selected_charts']
     
     # Get current price if needed
     if should_fetch_current_price(auto_refresh_enabled):
@@ -77,11 +78,15 @@ def main():
         df = st.session_state.historical_data
     
     if not df.empty:
-        # Combined chart with price, volatility, and money flow
-        st.plotly_chart(
-            create_combined_price_volume_chart(df, selected_timezone), 
-            use_container_width=True
-        )
+        # Display unified chart with selected data series
+        if not selected_charts:
+            st.warning("No charts selected. Please select at least one chart from the sidebar.")
+        else:
+            # Display single unified chart with multiple y-axes
+            st.plotly_chart(
+                create_unified_chart(df, selected_charts, selected_timezone), 
+                use_container_width=True
+            )
         
         # Statistics metrics
         stats = create_statistics_display(df)

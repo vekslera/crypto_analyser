@@ -23,6 +23,44 @@ from core.timezone_utils import get_available_timezones, set_default_timezone
 from data_operations import clear_all_data
 
 
+def render_chart_selector():
+    """Render multiple chart selection checkboxes"""
+    st.sidebar.header("📊 Chart Selection")
+    
+    # Chart options
+    chart_options = [
+        {"name": "Price", "key": "price", "default": True},
+        {"name": "24h Trading Volume", "key": "volume", "default": False},
+        {"name": "24h Volatility", "key": "volatility", "default": True}
+    ]
+    
+    # Initialize session state for chart selections
+    if 'selected_charts' not in st.session_state:
+        st.session_state.selected_charts = [
+            option["key"] for option in chart_options if option["default"]
+        ]
+    
+    # Multiple chart selection checkboxes
+    st.sidebar.write("Choose charts to display:")
+    selected_charts = []
+    
+    for option in chart_options:
+        is_selected = st.sidebar.checkbox(
+            option["name"],
+            value=option["key"] in st.session_state.selected_charts,
+            key=f"chart_{option['key']}",
+            help=f"Show/hide {option['name']} chart"
+        )
+        
+        if is_selected:
+            selected_charts.append(option["key"])
+    
+    # Update session state
+    st.session_state.selected_charts = selected_charts
+    
+    return selected_charts
+
+
 def render_control_buttons():
     """Render main control buttons"""
     st.sidebar.header(GUI_HEADERS['controls'])
@@ -168,7 +206,8 @@ def handle_button_actions(controls):
 
 def render_all_sidebar_controls():
     """Render all sidebar controls and return their states"""
-    # Render control sections
+    # Render control sections in order (chart selector at top)
+    selected_charts = render_chart_selector()
     controls = render_control_buttons()
     selected_timezone = render_timezone_selector()
     time_range = render_data_settings()
@@ -178,6 +217,7 @@ def render_all_sidebar_controls():
     actions = handle_button_actions(controls)
     
     return {
+        'selected_charts': selected_charts,
         'controls': controls,
         'selected_timezone': selected_timezone,
         'time_range': time_range,

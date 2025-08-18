@@ -20,6 +20,7 @@ RATE_LIMIT_MAX_CALLS_PER_MINUTE = 4
 
 # Scheduler Configuration
 DEFAULT_COLLECTION_INTERVAL = 300  # seconds between collections (CoinGecko - 5 minutes)
+VOLUME_COLLECTION_INTERVAL = 300  # seconds between volume collections (CMC - 5 minutes)
 SCHEDULER_SLEEP_INTERVAL = 1  # seconds to sleep in scheduler loop
 
 # GUI Configuration

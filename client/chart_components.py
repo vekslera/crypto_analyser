@@ -89,8 +89,8 @@ def create_price_chart(df, timezone_name=None):
     return fig
 
 
-def create_combined_price_volume_chart(df, timezone_name=None):
-    """Create combined chart with price, volatility, and money flow on three y-axes"""
+def create_unified_chart(df, selected_charts, timezone_name=None):
+    """Create unified chart with configurable line plots and multiple y-axes"""
     if df.empty:
         return go.Figure()
     
@@ -100,53 +100,72 @@ def create_combined_price_volume_chart(df, timezone_name=None):
     # Create figure with multiple y-axes
     fig = go.Figure()
     
-    # Add price line (primary y-axis) - Blue
-    fig.add_trace(go.Scatter(
-        x=df_local['timestamp'],
-        y=df_local['price'],
-        mode='lines',
-        name='Bitcoin Price',
-        line=dict(color='#2E86AB', width=3),  # Blue
-        hovertemplate='<b>Price: $%{y:,.2f}</b><br>Time: %{x}<extra></extra>',
-        yaxis='y'
-    ))
+    # Add price line (primary y-axis - left) if selected
+    if "price" in selected_charts:
+        fig.add_trace(go.Scatter(
+            x=df_local['timestamp'],
+            y=df_local['price'],
+            mode='lines',
+            name='Bitcoin Price',
+            line=dict(color='#2E86AB', width=3),  # Blue
+            hovertemplate='<b>Price: $%{y:,.2f}</b><br>Time: %{x}<extra></extra>',
+            yaxis='y'
+        ))
     
-    # Use pre-calculated volatility and money flow from database
-    # No need to calculate here anymore - data comes from DB
-        
-    # Add volatility line (secondary y-axis) if available
-    if 'volatility' in df_local.columns:
+    # Add volatility line (secondary y-axis - right) if selected and available
+    if "volatility" in selected_charts and 'volatility' in df_local.columns:
         valid_volatility = df_local['volatility'].notna()
         if valid_volatility.any():
             fig.add_trace(go.Scatter(
                 x=df_local.loc[valid_volatility, 'timestamp'],
                 y=df_local.loc[valid_volatility, 'volatility'],
                 mode='lines',
-                name='Volatility (%)',
+                name='24h Volatility (%)',
                 line=dict(color='#A23B72', width=2),  # Purple/Magenta
                 hovertemplate='<b>Volatility: %{y:.3f}%</b><br>Time: %{x}<extra></extra>',
                 yaxis='y2'
             ))
     
-    # Add money flow line (third y-axis) if available - COMMENTED OUT FOR NOW
-    # if 'money_flow' in df_local.columns:
-    #     valid_flow = df_local['money_flow'].notna()
-    #     if valid_flow.any():
-    #         fig.add_trace(go.Scatter(
-    #             x=df_local.loc[valid_flow, 'timestamp'],
-    #             y=df_local.loc[valid_flow, 'money_flow'],
-    #             mode='lines',
-    #             name='Money Flow',
-    #             line=dict(color='#F18F01', width=2),  # Orange
-    #             hovertemplate='<b>Money Flow: $%{y:+,.0f}</b><br>Time: %{x}<extra></extra>',
-    #             yaxis='y3'
-    #         ))
+    # Add volume line (secondary y-axis - right) if selected and available
+    if "volume" in selected_charts and 'volume_24h' in df_local.columns:
+        valid_volume = df_local['volume_24h'].notna()
+        if valid_volume.any():
+            fig.add_trace(go.Scatter(
+                x=df_local.loc[valid_volume, 'timestamp'],
+                y=df_local.loc[valid_volume, 'volume_24h'],
+                mode='lines',
+                name='24h Volume (USD)',
+                line=dict(color='#34D399', width=2),  # Green
+                hovertemplate='<b>Volume: $%{y:,.0f}</b><br>Time: %{x}<extra></extra>',
+                yaxis='y2'
+            ))
     
-    # Update layout with three y-axes
+    # Build dynamic chart title based on selected data
+    title_parts = []
+    if "price" in selected_charts:
+        title_parts.append("Price")
+    if "volatility" in selected_charts:
+        title_parts.append("Volatility")  
+    if "volume" in selected_charts:
+        title_parts.append("Volume")
+    
     chart_title = CHART_LABELS['price_chart_title'].format(timezone=timezone_name if timezone_name else "UTC")
+    if title_parts:
+        chart_title = f"{chart_title} - {' & '.join(title_parts)}"
+    
+    # Configure y-axis titles based on what's displayed on the right axis
+    right_axis_items = []
+    if "volatility" in selected_charts and 'volatility' in df_local.columns:
+        right_axis_items.append("Volatility (%)")
+    if "volume" in selected_charts and 'volume_24h' in df_local.columns:
+        right_axis_items.append("Volume (USD)")
+    
+    right_axis_title = " / ".join(right_axis_items) if right_axis_items else "Secondary Metrics"
+    
+    # Update layout with dual y-axes
     fig.update_layout(
         title={
-            'text': f"{chart_title} - Price & Volatility",
+            'text': chart_title,
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20, 'color': '#1f2937'}
@@ -169,38 +188,23 @@ def create_combined_price_volume_chart(df, timezone_name=None):
             side='left',
             tickfont=dict(color='#2E86AB')
         ),
-        # Secondary y-axis (right) - Volatility
+        # Secondary y-axis (right) - Volume/Volatility
         yaxis2=dict(
             title=dict(
-                text='Volatility (%)',
-                font=dict(color='#A23B72')
+                text=right_axis_title,
+                font=dict(color='#666666')
             ),
-            tickformat='.3f',
             side='right',
             overlaying='y',
             showgrid=False,
-            tickfont=dict(color='#A23B72'),
+            tickfont=dict(color='#666666'),
             anchor='free',
             position=0.97
-        ),
-        # Third y-axis (far right) - Money Flow
-        yaxis3=dict(
-            title=dict(
-                text='Money Flow (USD)',
-                font=dict(color='#F18F01')
-            ),
-            tickformat='$+,.0f',
-            side='right',
-            overlaying='y',
-            showgrid=False,
-            tickfont=dict(color='#F18F01'),
-            anchor='free',
-            position=1.0
         ),
         plot_bgcolor=CHART_CONFIG['background_color'],
         paper_bgcolor=CHART_CONFIG['background_color'],
         hovermode='x unified',
-        height=700,  # Taller to accommodate three axes
+        height=600,
         showlegend=True,
         legend=dict(
             x=0.02,
@@ -209,7 +213,7 @@ def create_combined_price_volume_chart(df, timezone_name=None):
             bordercolor='rgba(0, 0, 0, 0.2)',
             borderwidth=1
         ),
-        margin=dict(r=120)  # Extra right margin for third y-axis
+        margin=dict(r=80)  # Right margin for secondary y-axis
     )
     
     return fig
@@ -273,6 +277,121 @@ def create_combined_price_volume_chart(df, timezone_name=None):
 #     )
 #     
 #     return fig
+
+
+def create_volume_chart(df, timezone_name=None):
+    """Create 24h trading volume chart"""
+    if df.empty:
+        return go.Figure()
+    
+    # Convert timestamps to local timezone
+    df_local = _convert_timestamps_to_timezone(df, timezone_name)
+    
+    # Check if volume data is available
+    if 'volume_24h' not in df_local.columns:
+        return go.Figure()
+    
+    # Filter out records with no volume data
+    valid_volume = df_local['volume_24h'].notna()
+    if not valid_volume.any():
+        return go.Figure()
+    
+    fig = go.Figure()
+    
+    # Add volume bars
+    fig.add_trace(go.Bar(
+        x=df_local.loc[valid_volume, 'timestamp'],
+        y=df_local.loc[valid_volume, 'volume_24h'],
+        name='24h Volume',
+        marker_color='#34D399',  # Green
+        hovertemplate='<b>Volume: $%{y:,.0f}</b><br>Time: %{x}<extra></extra>'
+    ))
+    
+    # Update layout
+    chart_title = f"Bitcoin 24h Trading Volume ({timezone_name if timezone_name else 'UTC'})"
+    fig.update_layout(
+        title={
+            'text': chart_title,
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 20, 'color': '#1f2937'}
+        },
+        xaxis=dict(
+            title=CHART_LABELS['time_axis'],
+            gridcolor=CHART_CONFIG['grid_color'],
+            showgrid=True
+        ),
+        yaxis=dict(
+            title='Volume (USD)',
+            gridcolor=CHART_CONFIG['grid_color'],
+            showgrid=True,
+            tickformat='$,.0s'  # Format as currency with SI suffix (K, M, B)
+        ),
+        plot_bgcolor=CHART_CONFIG['background_color'],
+        paper_bgcolor=CHART_CONFIG['background_color'],
+        hovermode=CHART_CONFIG['hover_mode'],
+        height=500
+    )
+    
+    return fig
+
+
+def create_volatility_chart(df, timezone_name=None):
+    """Create 24h volatility chart"""
+    if df.empty:
+        return go.Figure()
+    
+    # Convert timestamps to local timezone
+    df_local = _convert_timestamps_to_timezone(df, timezone_name)
+    
+    # Check if volatility data is available
+    if 'volatility' not in df_local.columns:
+        return go.Figure()
+    
+    # Filter out records with no volatility data
+    valid_volatility = df_local['volatility'].notna()
+    if not valid_volatility.any():
+        return go.Figure()
+    
+    fig = go.Figure()
+    
+    # Add volatility line
+    fig.add_trace(go.Scatter(
+        x=df_local.loc[valid_volatility, 'timestamp'],
+        y=df_local.loc[valid_volatility, 'volatility'],
+        mode='lines',
+        name='24h Volatility',
+        line=dict(color='#A23B72', width=2),  # Purple/Magenta
+        hovertemplate='<b>Volatility: %{y:.3f}%</b><br>Time: %{x}<extra></extra>'
+    ))
+    
+    # Update layout
+    chart_title = f"Bitcoin 24h Volatility ({timezone_name if timezone_name else 'UTC'})"
+    fig.update_layout(
+        title={
+            'text': chart_title,
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 20, 'color': '#1f2937'}
+        },
+        xaxis=dict(
+            title=CHART_LABELS['time_axis'],
+            gridcolor=CHART_CONFIG['grid_color'],
+            showgrid=True
+        ),
+        yaxis=dict(
+            title='Volatility (%)',
+            gridcolor=CHART_CONFIG['grid_color'],
+            showgrid=True,
+            tickformat='.3f'
+        ),
+        plot_bgcolor=CHART_CONFIG['background_color'],
+        paper_bgcolor=CHART_CONFIG['background_color'],
+        hovermode=CHART_CONFIG['hover_mode'],
+        height=500
+    )
+    
+    return fig
 
 
 def create_statistics_display(df):
