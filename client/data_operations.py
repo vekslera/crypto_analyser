@@ -35,9 +35,9 @@ def get_price_data_from_db(time_params=None) -> pd.DataFrame:
             data = response.json()
             if data:
                 df = pd.DataFrame(data)
-                # Convert timestamp strings to datetime objects
+                # Convert timestamp strings to datetime objects (handle mixed formats)
                 if 'timestamp' in df.columns:
-                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', utc=True)
                 return df
         return pd.DataFrame()
         

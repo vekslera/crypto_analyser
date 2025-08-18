@@ -246,11 +246,26 @@ class CryptoService:
             recent_prices = await self.database_repo.get_recent_prices(10)
             
             # Get 24 hours of data for volatility calculation using timestamp range
-            from datetime import timedelta
-            twenty_four_hours_ago = price_data.timestamp - timedelta(hours=24)
+            from datetime import timedelta, timezone
+            
+            # Ensure timezone consistency - normalize all timestamps to UTC
+            current_timestamp = price_data.timestamp
+            if current_timestamp.tzinfo is None:
+                current_timestamp = current_timestamp.replace(tzinfo=timezone.utc)
+            elif current_timestamp.tzinfo != timezone.utc:
+                current_timestamp = current_timestamp.astimezone(timezone.utc)
+            
+            twenty_four_hours_ago = current_timestamp - timedelta(hours=24)
             daily_prices = await self.database_repo.get_price_history_by_time_range(
-                twenty_four_hours_ago, price_data.timestamp
+                twenty_four_hours_ago, current_timestamp
             )
+            
+            # Normalize timestamps in daily_prices to UTC for consistent sorting
+            for price_record in daily_prices:
+                if price_record.timestamp.tzinfo is None:
+                    price_record.timestamp = price_record.timestamp.replace(tzinfo=timezone.utc)
+                elif price_record.timestamp.tzinfo != timezone.utc:
+                    price_record.timestamp = price_record.timestamp.astimezone(timezone.utc)
             
             volume_velocity = None
             
@@ -303,7 +318,17 @@ class CryptoService:
                 logger.info(f"  - Calculating 24-hour volatility using {len(daily_prices)} data points...")
                 
                 # Create price series including new data point (ensure chronological order)
-                all_prices = sorted(daily_prices + [price_data], key=lambda x: x.timestamp)
+                # Use normalized timestamp for price_data
+                normalized_price_data = PriceData(
+                    price=price_data.price,
+                    timestamp=current_timestamp,  # Use the normalized UTC timestamp
+                    volume_24h=price_data.volume_24h,
+                    volume_velocity=volume_velocity,
+                    market_cap=price_data.market_cap,
+                    volatility=None,  # Will be calculated
+                    money_flow=None   # Will be calculated
+                )
+                all_prices = sorted(daily_prices + [normalized_price_data], key=lambda x: x.timestamp)
                 prices = [data.price for data in all_prices]
                 
                 # Calculate returns for the entire 24-hour period
@@ -353,7 +378,7 @@ class CryptoService:
                     price=price_data.price,
                     market_cap=price_data.market_cap,
                     volume_24h=price_data.volume_24h,
-                    timestamp=price_data.timestamp,
+                    timestamp=current_timestamp,  # Use normalized UTC timestamp
                     volume_velocity=volume_velocity,
                     volatility=volatility,
                     money_flow=money_flow

@@ -57,6 +57,7 @@ CG_API_KEY = os.environ.get("CG_API_KEY")
 
 # API Parameters
 COINGECKO_PARAMS = {
+
     'ids': 'bitcoin',
     'vs_currencies': 'usd',
     'include_market_cap': 'true',
