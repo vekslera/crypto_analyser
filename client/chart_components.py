@@ -191,7 +191,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
             tickfont=dict(color='#A23B72'),
             tickformat='.3f',
             anchor='free',
-            position=0.94  # Positioned closer to the chart
+            position=0.90  # Moved further right
         ),
         # Third y-axis (far right) - Volume
         yaxis3=dict(
@@ -205,7 +205,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
             tickfont=dict(color='#34D399'),
             tickformat='$,.0s',  # Format as currency with SI suffix (K, M, B)
             anchor='free',
-            position=1.0  # Positioned at far right
+            position=0.97  # Moved further right
         ),
         plot_bgcolor=CHART_CONFIG['background_color'],
         paper_bgcolor=CHART_CONFIG['background_color'],
@@ -214,12 +214,13 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
         showlegend=True,
         legend=dict(
             x=0.02,
-            y=0.98,
+            y=1.02,  # Moved higher above the chart
             bgcolor='rgba(255, 255, 255, 0.9)',
             bordercolor='rgba(0, 0, 0, 0.2)',
-            borderwidth=1
+            borderwidth=1,
+            orientation='h'  # Make legend horizontal for better space usage
         ),
-        margin=dict(r=120)  # Extra right margin for third y-axis
+        margin=dict(r=140, t=60)  # Extra right margin for axes and top margin for legend
     )
     
     return fig
