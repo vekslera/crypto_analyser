@@ -20,7 +20,7 @@ from core.config import (
     get_user_parameter, set_user_parameter, get_all_user_parameters
 )
 from core.timezone_utils import get_available_timezones, set_default_timezone
-from data_operations import clear_all_data
+from data_operations import clear_all_data, fill_data_gaps, detect_data_gaps, create_database_backup, list_database_backups, recalculate_volatility
 
 
 def render_chart_selector():
@@ -79,10 +79,34 @@ def render_control_buttons():
     refresh_button = st.sidebar.button(BUTTON_LABELS['refresh_now'])
     clear_data_button = st.sidebar.button(BUTTON_LABELS['clear_data'], type="secondary")
     
+    # Gap filling button
+    fill_gaps_button = st.sidebar.button(
+        "🔧 Fill Data Gaps", 
+        help="Detect and fill missing data using CoinGecko API",
+        type="secondary"
+    )
+    
+    # Backup button
+    backup_button = st.sidebar.button(
+        "💾 Create Backup", 
+        help="Create a backup of the database",
+        type="secondary"
+    )
+    
+    # Volatility calculation button
+    volatility_button = st.sidebar.button(
+        "📊 Recalculate Volatility", 
+        help="Recalculate volatility for recent data",
+        type="secondary"
+    )
+    
     return {
         'auto_refresh': auto_refresh,
         'refresh_button': refresh_button,
-        'clear_data_button': clear_data_button
+        'clear_data_button': clear_data_button,
+        'fill_gaps_button': fill_gaps_button,
+        'backup_button': backup_button,
+        'volatility_button': volatility_button
     }
 
 
@@ -191,7 +215,10 @@ def handle_button_actions(controls):
     """Handle actions from control buttons"""
     actions = {
         'refresh_requested': False,
-        'data_cleared': False
+        'data_cleared': False,
+        'gaps_filled': False,
+        'backup_created': False,
+        'volatility_recalculated': False
     }
     
     # Handle manual refresh
@@ -207,6 +234,61 @@ def handle_button_actions(controls):
             actions['data_cleared'] = True
         else:
             st.sidebar.error(UI_MESSAGES['failed_clear_data'])
+    
+    # Handle gap filling
+    if controls['fill_gaps_button']:
+        with st.sidebar:
+            with st.spinner("Detecting data gaps..."):
+                gaps_info = detect_data_gaps()
+                
+                if gaps_info and gaps_info.get('gaps_found', 0) > 0:
+                    st.info(f"Found {gaps_info['gaps_found']} gaps totaling {gaps_info['total_gap_hours']:.1f} hours")
+                    
+                    with st.spinner("Filling data gaps..."):
+                        result = fill_data_gaps()
+                        
+                        if result and result.get('success'):
+                            st.success(f"✅ {result['message']}")
+                            st.info(f"Filled {result['gaps_filled']} gaps with {result['records_inserted']} records")
+                            actions['gaps_filled'] = True
+                            # Clear cache to refresh data
+                            if hasattr(st.session_state, 'last_data_fetch'):
+                                st.session_state.last_data_fetch = 0
+                        else:
+                            error_msg = result.get('message', 'Unknown error') if result else 'API call failed'
+                            st.error(f"❌ Gap filling failed: {error_msg}")
+                else:
+                    st.success("✅ No gaps found! Database has continuous coverage.")
+    
+    # Handle backup creation
+    if controls['backup_button']:
+        with st.sidebar:
+            with st.spinner("Creating database backup..."):
+                result = create_database_backup()
+                
+                if result and result.get('message'):
+                    st.success(f"✅ {result['message']}")
+                    st.info(f"Backup file: {result.get('backup_file', 'N/A')}")
+                    st.info(f"Records backed up: {result.get('record_count', 'N/A'):,}")
+                    actions['backup_created'] = True
+                else:
+                    st.error("❌ Backup creation failed")
+    
+    # Handle volatility recalculation
+    if controls['volatility_button']:
+        with st.sidebar:
+            with st.spinner("Recalculating volatility for recent data..."):
+                result = recalculate_volatility(days_back=35)
+                
+                if result and result.get('message'):
+                    st.success(f"✅ {result['message']}")
+                    st.info(f"Records updated: {result.get('records_updated', 0):,}")
+                    actions['volatility_recalculated'] = True
+                    # Clear cache to refresh data
+                    if hasattr(st.session_state, 'last_data_fetch'):
+                        st.session_state.last_data_fetch = 0
+                else:
+                    st.error("❌ Volatility recalculation failed")
     
     return actions
 

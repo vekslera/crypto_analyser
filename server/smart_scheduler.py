@@ -18,6 +18,7 @@ from core.logging_config import get_logger
 
 from .dependency_container import container
 from .services.crypto_service import CryptoService
+from .services.backup_service import get_backup_service
 from core.api_config import VOLUME_COLLECTION_INTERVAL, SCHEDULER_SLEEP_INTERVAL
 from .interfaces.database_interface import PriceData
 from datetime import datetime
@@ -36,6 +37,9 @@ class SmartScheduler:
         
         # Track last successful volume to fill gaps
         self.last_known_volume = None
+        
+        # Backup service
+        self.backup_service = get_backup_service()
     
     def get_crypto_service(self) -> Optional[CryptoService]:
         """Get crypto service singleton using dependency injection"""
@@ -101,6 +105,26 @@ class SmartScheduler:
             logger.error(f"Error in combined collection job: {e}")
             import traceback
             traceback.print_exc()
+    
+    async def create_daily_backup(self):
+        """Create a daily backup of the database"""
+        try:
+            logger.info("Creating daily database backup...")
+            result = self.backup_service.create_backup()
+            
+            if result['success']:
+                logger.info(f"Daily backup created successfully: {result['backup_file']} ({result['record_count']} records)")
+                
+                # Also clean up old backups (keep 30 days)
+                cleanup_result = self.backup_service.cleanup_old_backups(keep_days=30)
+                if cleanup_result['success'] and cleanup_result['deleted_count'] > 0:
+                    logger.info(f"Cleaned up {cleanup_result['deleted_count']} old backup files")
+                    
+            else:
+                logger.error(f"Daily backup failed: {result['message']}")
+                
+        except Exception as e:
+            logger.error(f"Error in daily backup: {e}")
     
     def _create_combined_data(self, cg_data: Optional[PriceData], cmc_data: Optional[PriceData]) -> Optional[PriceData]:
         """Create a complete data record from both sources"""
@@ -177,6 +201,10 @@ class SmartScheduler:
         """Wrapper for combined collection"""
         asyncio.run(self.collect_combined_data_job())
     
+    def run_backup_job(self):
+        """Wrapper for daily backup"""
+        asyncio.run(self.create_daily_backup())
+    
     def start_scheduler(self):
         """Start the smart collection scheduler"""
         if not container.is_initialized():
@@ -184,6 +212,10 @@ class SmartScheduler:
             return
         
         schedule.every(self.collection_interval_seconds).seconds.do(self.run_collection_job)
+        
+        # Schedule daily backup at midnight
+        schedule.every().day.at("00:00").do(self.run_backup_job)
+        
         self.running = True
         
         # Calculate API usage
@@ -192,6 +224,7 @@ class SmartScheduler:
         
         logger.info(f"Smart scheduler started:")
         logger.info(f"  - Combined collection every {self.collection_interval_seconds}s")
+        logger.info(f"  - Daily backup scheduled at midnight")
         logger.info(f"  - CMC monthly usage: ~{calls_per_month:.0f}/10,000 calls ({calls_per_month/10000*100:.1f}%)")
         logger.info(f"  - All records have complete price, volume, and market cap data")
         logger.info(f"  - Volume velocity calculation will work properly")
