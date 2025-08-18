@@ -126,7 +126,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
                 yaxis='y2'
             ))
     
-    # Add volume line (secondary y-axis - right) if selected and available
+    # Add volume line (third y-axis - far right) if selected and available
     if "volume" in selected_charts and 'volume_24h' in df_local.columns:
         valid_volume = df_local['volume_24h'].notna()
         if valid_volume.any():
@@ -137,7 +137,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
                 name='24h Volume (USD)',
                 line=dict(color='#34D399', width=2),  # Green
                 hovertemplate='<b>Volume: $%{y:,.0f}</b><br>Time: %{x}<extra></extra>',
-                yaxis='y2'
+                yaxis='y3'
             ))
     
     # Build dynamic chart title based on selected data
@@ -153,16 +153,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
     if title_parts:
         chart_title = f"{chart_title} - {' & '.join(title_parts)}"
     
-    # Configure y-axis titles based on what's displayed on the right axis
-    right_axis_items = []
-    if "volatility" in selected_charts and 'volatility' in df_local.columns:
-        right_axis_items.append("Volatility (%)")
-    if "volume" in selected_charts and 'volume_24h' in df_local.columns:
-        right_axis_items.append("Volume (USD)")
-    
-    right_axis_title = " / ".join(right_axis_items) if right_axis_items else "Secondary Metrics"
-    
-    # Update layout with dual y-axes
+    # Update layout with three separate y-axes
     fig.update_layout(
         title={
             'text': chart_title,
@@ -188,18 +179,33 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
             side='left',
             tickfont=dict(color='#2E86AB')
         ),
-        # Secondary y-axis (right) - Volume/Volatility
+        # Secondary y-axis (right) - Volatility
         yaxis2=dict(
             title=dict(
-                text=right_axis_title,
-                font=dict(color='#666666')
+                text='Volatility (%)',
+                font=dict(color='#A23B72')
             ),
             side='right',
             overlaying='y',
             showgrid=False,
-            tickfont=dict(color='#666666'),
+            tickfont=dict(color='#A23B72'),
+            tickformat='.3f',
             anchor='free',
-            position=0.97
+            position=0.94  # Positioned closer to the chart
+        ),
+        # Third y-axis (far right) - Volume
+        yaxis3=dict(
+            title=dict(
+                text='Volume (USD)',
+                font=dict(color='#34D399')
+            ),
+            side='right',
+            overlaying='y',
+            showgrid=False,
+            tickfont=dict(color='#34D399'),
+            tickformat='$,.0s',  # Format as currency with SI suffix (K, M, B)
+            anchor='free',
+            position=1.0  # Positioned at far right
         ),
         plot_bgcolor=CHART_CONFIG['background_color'],
         paper_bgcolor=CHART_CONFIG['background_color'],
@@ -213,7 +219,7 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
             bordercolor='rgba(0, 0, 0, 0.2)',
             borderwidth=1
         ),
-        margin=dict(r=80)  # Right margin for secondary y-axis
+        margin=dict(r=120)  # Extra right margin for third y-axis
     )
     
     return fig

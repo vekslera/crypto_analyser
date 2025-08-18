@@ -27,36 +27,43 @@ def render_chart_selector():
     """Render multiple chart selection checkboxes"""
     st.sidebar.header("📊 Chart Selection")
     
-    # Chart options
-    chart_options = [
-        {"name": "Price", "key": "price", "default": True},
-        {"name": "24h Trading Volume", "key": "volume", "default": False},
-        {"name": "24h Volatility", "key": "volatility", "default": True}
-    ]
-    
-    # Initialize session state for chart selections
-    if 'selected_charts' not in st.session_state:
-        st.session_state.selected_charts = [
-            option["key"] for option in chart_options if option["default"]
-        ]
+    # Initialize default chart selections in session state
+    if 'chart_selections' not in st.session_state:
+        st.session_state.chart_selections = {
+            'price': True,
+            'volume': False, 
+            'volatility': True
+        }
     
     # Multiple chart selection checkboxes
     st.sidebar.write("Choose charts to display:")
-    selected_charts = []
     
-    for option in chart_options:
-        is_selected = st.sidebar.checkbox(
-            option["name"],
-            value=option["key"] in st.session_state.selected_charts,
-            key=f"chart_{option['key']}",
-            help=f"Show/hide {option['name']} chart"
-        )
-        
-        if is_selected:
-            selected_charts.append(option["key"])
+    # Price checkbox
+    st.session_state.chart_selections['price'] = st.sidebar.checkbox(
+        "Price",
+        value=st.session_state.chart_selections['price'],
+        help="Show/hide Bitcoin price chart"
+    )
     
-    # Update session state
-    st.session_state.selected_charts = selected_charts
+    # Volume checkbox  
+    st.session_state.chart_selections['volume'] = st.sidebar.checkbox(
+        "24h Trading Volume",
+        value=st.session_state.chart_selections['volume'],
+        help="Show/hide 24h trading volume chart"
+    )
+    
+    # Volatility checkbox
+    st.session_state.chart_selections['volatility'] = st.sidebar.checkbox(
+        "24h Volatility", 
+        value=st.session_state.chart_selections['volatility'],
+        help="Show/hide 24h volatility chart"
+    )
+    
+    # Build selected charts list
+    selected_charts = [
+        key for key, value in st.session_state.chart_selections.items() 
+        if value
+    ]
     
     return selected_charts
 
