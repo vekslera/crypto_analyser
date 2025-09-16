@@ -8,6 +8,7 @@ import os
 import pandas as pd
 import plotly.graph_objects as go
 import pytz
+import numpy as np
 
 # Add the project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -97,6 +98,23 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
     # Convert timestamps to local timezone
     df_local = _convert_timestamps_to_timezone(df, timezone_name)
     
+    # Calculate 24h moving average if we have enough data
+    if len(df_local) >= 2:
+        # Estimate data frequency (assuming data is sorted by timestamp)
+        df_sorted = df_local.sort_values('timestamp')
+        time_diffs = df_sorted['timestamp'].diff().dropna()
+        if len(time_diffs) > 0:
+            # Calculate median time difference between data points
+            median_interval = time_diffs.median()
+            # Calculate 24h moving average window size
+            # 24 hours = 24*60 minutes, divide by interval in minutes
+            interval_minutes = median_interval.total_seconds() / 60
+            if interval_minutes > 0:
+                window_size = max(1, int((24 * 60) / interval_minutes))
+                # Cap window size to reasonable limits
+                window_size = min(window_size, len(df_sorted) // 2, 288)  # Max 288 (5-min intervals for 24h)
+                df_local['ma_24h'] = df_sorted['price'].rolling(window=window_size, min_periods=1, center=False).mean()
+    
     # Create figure with multiple y-axes
     fig = go.Figure()
     
@@ -140,10 +158,26 @@ def create_unified_chart(df, selected_charts, timezone_name=None):
                 yaxis='y3'
             ))
     
+    # Add 24h moving average (same y-axis as price) if selected and available
+    if "ma_24h" in selected_charts and 'ma_24h' in df_local.columns:
+        valid_ma = df_local['ma_24h'].notna()
+        if valid_ma.any():
+            fig.add_trace(go.Scatter(
+                x=df_local.loc[valid_ma, 'timestamp'],
+                y=df_local.loc[valid_ma, 'ma_24h'],
+                mode='lines',
+                name='24h Moving Average',
+                line=dict(color='#F59E0B', width=2, dash='dot'),  # Orange with dashed line
+                hovertemplate='<b>24h MA: $%{y:,.2f}</b><br>Time: %{x}<extra></extra>',
+                yaxis='y'  # Same axis as price
+            ))
+    
     # Build dynamic chart title based on selected data
     title_parts = []
     if "price" in selected_charts:
         title_parts.append("Price")
+    if "ma_24h" in selected_charts:
+        title_parts.append("24h MA")
     if "volatility" in selected_charts:
         title_parts.append("Volatility")  
     if "volume" in selected_charts:

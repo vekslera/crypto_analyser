@@ -31,6 +31,7 @@ def render_chart_selector():
     if 'chart_selections' not in st.session_state:
         st.session_state.chart_selections = {
             'price': True,
+            'ma_24h': False,
             'volume': False, 
             'volatility': True
         }
@@ -43,6 +44,13 @@ def render_chart_selector():
         "Price",
         value=st.session_state.chart_selections['price'],
         help="Show/hide Bitcoin price chart"
+    )
+    
+    # 24h Moving Average checkbox
+    st.session_state.chart_selections['ma_24h'] = st.sidebar.checkbox(
+        "24h Moving Average",
+        value=st.session_state.chart_selections['ma_24h'],
+        help="Show/hide 24-hour moving average price line"
     )
     
     # Volume checkbox  
