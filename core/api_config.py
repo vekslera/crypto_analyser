@@ -35,6 +35,12 @@ DEFAULT_SERIES_LIMIT = 50
 RECENT_ENTRIES_DISPLAY_LIMIT = 10
 RECENT_DATA_TAIL_LIMIT = 10
 
+# Gap Detection Configuration
+# Set to 1.08 hours (65 minutes) to avoid false positives from hourly data queries
+GAP_DETECTION_MIN_HOURS = 1.08
+GAP_DETECTION_CHECK_RECENT_DAYS = 30
+GAP_DETECTION_MAX_GAPS_PER_OPERATION = 10
+
 # Time Ranges for GUI (now using time periods instead of point counts)
 TIME_RANGE_OPTIONS = {
     "Last 24 hours": {"hours": 24},

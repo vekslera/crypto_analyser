@@ -19,6 +19,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, project_root)
 
 from ..interfaces.database_interface import DatabaseRepository, PriceData
+from ...core.api_config import GAP_DETECTION_MIN_HOURS, GAP_DETECTION_CHECK_RECENT_DAYS, GAP_DETECTION_MAX_GAPS_PER_OPERATION
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class GapFillingService:
     def __init__(self, database_repo: DatabaseRepository):
         self.database_repo = database_repo
         
-    async def detect_gaps(self, min_gap_hours: float = 1.0, check_recent_days: int = 30) -> List[Dict[str, Any]]:
+    async def detect_gaps(self, min_gap_hours: float = GAP_DETECTION_MIN_HOURS, check_recent_days: int = GAP_DETECTION_CHECK_RECENT_DAYS) -> List[Dict[str, Any]]:
         """Detect all gaps > specified hours in the database, including gaps from missing recent data"""
         
         logger.info(f"Detecting gaps larger than {min_gap_hours} hours (checking last {check_recent_days} days)")
@@ -239,7 +240,7 @@ class GapFillingService:
         logger.info(f"Inserted {inserted_count} records for gap")
         return inserted_count
     
-    async def fill_all_gaps(self, min_gap_hours: float = 1.0, max_gaps: int = 10, check_recent_days: int = 30) -> Dict[str, Any]:
+    async def fill_all_gaps(self, min_gap_hours: float = GAP_DETECTION_MIN_HOURS, max_gaps: int = GAP_DETECTION_MAX_GAPS_PER_OPERATION, check_recent_days: int = GAP_DETECTION_CHECK_RECENT_DAYS) -> Dict[str, Any]:
         """Fill all detected gaps with rate limiting"""
         
         logger.info(f"Starting comprehensive gap filling (max {max_gaps} gaps, checking last {check_recent_days} days)")

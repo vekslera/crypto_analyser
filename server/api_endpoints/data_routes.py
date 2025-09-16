@@ -50,7 +50,7 @@ async def fill_data_gaps(check_recent_days: int = 30, max_gaps: int = 10):
     """Fill data gaps using CoinGecko API"""
     try:
         gap_service = get_gap_filling_service()
-        result = await gap_service.fill_all_gaps(min_gap_hours=1.0, max_gaps=max_gaps, check_recent_days=check_recent_days)
+        result = await gap_service.fill_all_gaps(max_gaps=max_gaps, check_recent_days=check_recent_days)
         
         if result['success']:
             return {
@@ -72,7 +72,7 @@ async def detect_data_gaps(check_recent_days: int = 30):
     """Detect data gaps without filling them"""
     try:
         gap_service = get_gap_filling_service()
-        gaps = await gap_service.detect_gaps(min_gap_hours=1.0, check_recent_days=check_recent_days)
+        gaps = await gap_service.detect_gaps(check_recent_days=check_recent_days)
         
         gap_summary = []
         total_gap_hours = 0
