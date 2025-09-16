@@ -59,21 +59,34 @@ def fast_recalculate_volatility():
         conn.close()
         return
     
-    # Calculate price returns (simple approach for mixed intervals)
+    # Calculate price returns (frequency-independent approach for mixed intervals)
     df['returns'] = df['price'].pct_change()
     df['time_diff_hours'] = df['timestamp'].diff().dt.total_seconds() / 3600
     
-    print("Calculating 24-hour rolling volatility...")
+    print("Calculating frequency-independent 24-hour rolling volatility...")
     
-    # Use a simplified approach: calculate 24-hour rolling standard deviation of returns
-    # This will work reasonably well for mixed intervals
-    window_size = '24h'  # 24-hour rolling window (using lowercase 'h')
+    # Detect actual data frequency by examining time differences
+    median_interval_hours = df['time_diff_hours'].median()
+    
+    if pd.isna(median_interval_hours) or median_interval_hours <= 0:
+        # Fallback: assume 5-minute intervals
+        median_interval_hours = 5/60  # 5 minutes = 0.0833 hours
+        print(f"  Using fallback interval: {median_interval_hours:.4f} hours (5 minutes)")
+    else:
+        print(f"  Detected median interval: {median_interval_hours:.4f} hours ({median_interval_hours*60:.1f} minutes)")
     
     # Set timestamp as index for rolling operations
     df_indexed = df.set_index('timestamp')
     
-    # Calculate rolling volatility (24-hour window) for ALL records to ensure proper calculation
-    df_indexed['volatility_24h'] = df_indexed['returns'].rolling(window_size, min_periods=2).std() * 100 * np.sqrt(24*12)  # Scale to daily % volatility
+    # Use time-based rolling window (24 hours) instead of period-based for frequency independence
+    df_indexed['volatility_raw'] = df_indexed['returns'].rolling('24H', min_periods=2).std()
+    
+    # Annualize the volatility: convert to daily percentage volatility
+    # Standard deviation of returns over any period * sqrt(periods_per_year) * 100
+    periods_per_year = 365 * (24 / median_interval_hours)
+    df_indexed['volatility_24h'] = df_indexed['volatility_raw'] * np.sqrt(periods_per_year) * 100
+    
+    print(f"  Annualization factor: sqrt({periods_per_year:.0f}) = {np.sqrt(periods_per_year):.2f}")
     
     # Reset index and handle NaN values
     df = df_indexed.reset_index()

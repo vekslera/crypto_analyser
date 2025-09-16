@@ -364,10 +364,30 @@ class GapFillingService:
             # Calculate returns
             df['returns'] = df['price'].pct_change()
             
-            # Calculate 24-hour rolling volatility (annualized)
-            # Assuming 5-minute intervals: 288 periods = 24 hours
-            window_size = min(288, len(df) // 4)  # Adaptive window size
-            df['volatility'] = df['returns'].rolling(window=window_size, min_periods=24).std() * np.sqrt(365 * 288) * 100
+            # Calculate frequency-independent 24-hour rolling volatility
+            # First, detect the actual data frequency by examining time differences
+            df['time_diff_hours'] = df['timestamp'].diff().dt.total_seconds() / 3600
+            median_interval_hours = df['time_diff_hours'].median()
+            
+            if pd.isna(median_interval_hours) or median_interval_hours <= 0:
+                # Fallback: assume 5-minute intervals
+                median_interval_hours = 5/60  # 5 minutes = 0.0833 hours
+            
+            # Calculate periods per 24 hours based on actual data frequency
+            periods_per_24h = int(24 / median_interval_hours)
+            
+            # Use time-based rolling window (24 hours) instead of period-based
+            # This makes it frequency-independent
+            df = df.set_index('timestamp')
+            df['volatility_raw'] = df['returns'].rolling('24H', min_periods=2).std()
+            
+            # Annualize the volatility: convert to daily percentage volatility
+            # Standard deviation of returns over any period * sqrt(periods_per_year) * 100
+            periods_per_year = 365 * (24 / median_interval_hours)
+            df['volatility'] = df['volatility_raw'] * np.sqrt(periods_per_year) * 100
+            
+            # Reset index back to regular DataFrame
+            df = df.reset_index()
             
             # Update records in database
             updated_count = 0
