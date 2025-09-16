@@ -19,7 +19,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, project_root)
 
 from ..interfaces.database_interface import DatabaseRepository, PriceData
-from ...core.api_config import GAP_DETECTION_MIN_HOURS, GAP_DETECTION_CHECK_RECENT_DAYS, GAP_DETECTION_MAX_GAPS_PER_OPERATION
+from core.api_config import GAP_DETECTION_MIN_HOURS, GAP_DETECTION_CHECK_RECENT_DAYS, GAP_DETECTION_MAX_GAPS_PER_OPERATION
 
 logger = logging.getLogger(__name__)
 
