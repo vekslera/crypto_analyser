@@ -313,9 +313,9 @@ class CryptoService:
             volatility = None
             money_flow = None
             
-            # Calculate 24-hour volatility using timestamp-based data
+            # Calculate frequency-independent 24-hour volatility using new method
             if len(daily_prices) >= 2:  # Need at least 2 data points for volatility calculation
-                logger.info(f"  - Calculating 24-hour volatility using {len(daily_prices)} data points...")
+                logger.info(f"  - Calculating frequency-independent 24-hour volatility using {len(daily_prices)} data points...")
                 
                 # Create price series including new data point (ensure chronological order)
                 # Use normalized timestamp for price_data
@@ -329,25 +329,53 @@ class CryptoService:
                     money_flow=None   # Will be calculated
                 )
                 all_prices = sorted(daily_prices + [normalized_price_data], key=lambda x: x.timestamp)
-                prices = [data.price for data in all_prices]
                 
-                # Calculate returns for the entire 24-hour period
-                returns = []
-                for i in range(1, len(prices)):
-                    returns.append((prices[i] - prices[i-1]) / prices[i-1])
+                # Use pandas for frequency-independent volatility calculation
+                import pandas as pd
+                import numpy as np
                 
-                # Calculate 24-hour volatility using proper statistical formula
-                if len(returns) >= 2:  # Need at least 2 returns
-                    n = len(returns)
-                    mean_return = sum(returns) / n
-                    # Proper variance calculation: Σ(x - μ)² / (n-1) 
-                    variance = sum([(r - mean_return)**2 for r in returns]) / (n - 1)
-                    volatility = (variance ** 0.5) * 100  # Convert to percentage
-                    
+                # Create DataFrame with timestamp and price
+                df = pd.DataFrame([{
+                    'timestamp': price_record.timestamp,
+                    'price': price_record.price
+                } for price_record in all_prices])
+                
+                # Calculate returns
+                df['returns'] = df['price'].pct_change()
+                
+                # Detect actual data frequency by examining time differences
+                df['time_diff_hours'] = df['timestamp'].diff().dt.total_seconds() / 3600
+                median_interval_hours = df['time_diff_hours'].median()
+                
+                if pd.isna(median_interval_hours) or median_interval_hours <= 0:
+                    # Fallback: assume 5-minute intervals
+                    median_interval_hours = 5/60  # 5 minutes = 0.0833 hours
+                    logger.info(f"    Using fallback interval: {median_interval_hours:.4f} hours (5 minutes)")
+                else:
+                    logger.info(f"    Detected median interval: {median_interval_hours:.4f} hours ({median_interval_hours*60:.1f} minutes)")
+                
+                # Set timestamp as index for time-based rolling operations
+                df_indexed = df.set_index('timestamp')
+                
+                # Use time-based rolling window (24 hours) for frequency independence
+                df_indexed['volatility_raw'] = df_indexed['returns'].rolling('24H', min_periods=2).std()
+                
+                # Annualize the volatility: convert to daily percentage volatility
+                # Standard deviation of returns over any period * sqrt(periods_per_year) * 100
+                periods_per_year = 365 * (24 / median_interval_hours)
+                annualization_factor = np.sqrt(periods_per_year)
+                df_indexed['volatility'] = df_indexed['volatility_raw'] * annualization_factor * 100
+                
+                # Get the volatility for the current (last) record
+                df_result = df_indexed.reset_index()
+                last_volatility = df_result['volatility'].iloc[-1]
+                
+                if pd.notna(last_volatility):
+                    volatility = float(last_volatility)
                     logger.info(f"    24-hour period: {twenty_four_hours_ago} to {price_data.timestamp}")
                     logger.info(f"    Data points: {len(daily_prices)} historical + 1 current = {len(all_prices)} total")
-                    logger.info(f"    Returns count: {n}")
-                    logger.info(f"    24-hour volatility: {volatility:.4f}%")
+                    logger.info(f"    Frequency-independent 24-hour volatility: {volatility:.4f}%")
+                    logger.info(f"    Annualization factor: {annualization_factor:.2f}")
                     
                     # Calculate BTC volume from volatility using power law
                     k = 1.0e-2  # Adjusted for more reasonable BTC volume estimates
@@ -363,7 +391,8 @@ class CryptoService:
                     else:
                         logger.info("    No recent price data for money flow calculation")
                 else:
-                    logger.info("  - Not enough returns for volatility calculation")
+                    logger.info("  - Could not calculate volatility for current record")
+                    volatility = None
             else:
                 logger.info(f"  - Insufficient 24-hour data for volatility calculation (only {len(daily_prices)} points)")
                 logger.info("  - Need at least 2 data points within 24-hour window")
