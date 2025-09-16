@@ -33,7 +33,7 @@ def render_chart_selector():
             'price': True,
             'ma_24h': False,
             'volume': False, 
-            'volatility': True
+            'volatility': False
         }
     
     # Multiple chart selection checkboxes
